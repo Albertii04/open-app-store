@@ -11,8 +11,6 @@ let proc: ChildProcess | null = null
 let url: string | null = null
 let starting: Promise<string> | null = null
 
-const PORT = '5199'
-
 function presenterDir(): string {
   return resolve(app.getAppPath(), '../../tools/presenter')
 }
@@ -24,33 +22,44 @@ export function getPreviewUrl(): Promise<string> {
     return Promise.reject(new Error('authoring dev server only available when running from source'))
 
   starting = new Promise<string>((res, rej) => {
+    let settled = false
+    const done = (u: string): void => {
+      if (settled) return
+      settled = true
+      url = u
+      res(u)
+    }
+    const fail = (e: Error): void => {
+      if (settled) return
+      settled = true
+      starting = null
+      rej(e)
+    }
+
     const dir = presenterDir()
     const bin = join(dir, 'node_modules/.bin/vite')
-    proc = spawn(bin, ['--port', PORT, '--strictPort'], { cwd: dir, env: process.env })
+    // No --strictPort: if 5199 is busy (e.g. an orphaned dev server) Vite picks
+    // the next free port; we parse whatever URL it prints.
+    proc = spawn(bin, ['--port', '5199'], { cwd: dir, env: process.env })
+
     const scan = (buf: Buffer): void => {
       const m = buf.toString().match(/(http:\/\/localhost:\d+\/)/)
-      if (m && !url) {
-        url = m[1]
-        res(url)
-      }
+      if (m) done(m[1])
     }
     proc.stdout?.on('data', scan)
     proc.stderr?.on('data', scan)
-    proc.on('error', (e) => {
-      starting = null
-      rej(e)
-    })
-    proc.on('exit', () => {
+    proc.on('error', fail)
+    proc.on('exit', (code) => {
       proc = null
-      url = null
-      starting = null
-    })
-    setTimeout(() => {
-      if (!url) {
+      if (!settled) {
+        fail(new Error(`dev server exited before starting (code ${code})`))
+      } else {
+        // Server died after running; allow a fresh start next time.
+        url = null
         starting = null
-        rej(new Error('dev server start timeout'))
       }
-    }, 25000)
+    })
+    setTimeout(() => fail(new Error('dev server start timeout')), 25000)
   })
   return starting
 }
