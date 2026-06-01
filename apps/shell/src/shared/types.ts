@@ -20,9 +20,16 @@ export interface ToolStatusEvent {
   status: ToolStatus
 }
 
-/** Open tool tabs and which one is focused (null = a shell page is showing). */
+/** One open tool instance (tab). A tool can be opened multiple times. */
+export interface TabInfo {
+  instanceId: string
+  toolId: string
+  title: string
+}
+
+/** Open instance tabs and which one is focused (null = the launcher is showing). */
 export interface TabsState {
-  openIds: string[]
+  tabs: TabInfo[]
   activeId: string | null
 }
 

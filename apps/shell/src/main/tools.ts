@@ -6,24 +6,31 @@ import type { TabsState, ToolStatus, ToolSummary } from '../shared/types.js'
 import { builtinToolsDir, installedToolsDir } from './paths.js'
 import { registerToolView, unregisterToolView } from './broker.js'
 
-/** Height of the tab bar; tool views sit below it and span the full width
- *  (the launcher sidebar is hidden while a tool is open). */
+/** Height of the persistent tab bar; tool views sit below it, full width. */
 const TABBAR_H = 40
 
 function toolPreloadPath(): string {
   return join(app.getAppPath(), 'out/preload/tool.js')
 }
 
+interface Instance {
+  instanceId: string
+  toolId: string
+  view: WebContentsView
+  loaded: boolean
+  title: string
+}
+
 /**
- * Hosts tools as Figma-style tabs: one tab (and one WebContentsView) per open
- * tool. Switching shows that tab's view and hides the others; the shell pages
- * (home/marketplace) hide all of them while the tabs stay open.
+ * Hosts tools as browser-style tabs. Each open is a fresh INSTANCE (its own
+ * WebContentsView), so a tool can be opened many times. The tab bar is always
+ * present; the launcher (home) shows when no instance is active.
  */
 export class ToolManager {
   private tools = new Map<string, LoadedTool>()
-  private views = new Map<string, WebContentsView>()
-  private loaded = new Set<string>()
-  private openOrder: string[] = []
+  private instances = new Map<string, Instance>()
+  private order: string[] = []
+  private counter = 0
   private win: BrowserWindow | null = null
   private activeId: string | null = null
 
@@ -62,57 +69,69 @@ export class ToolManager {
   }
 
   tabs(): TabsState {
-    return { openIds: [...this.openOrder], activeId: this.activeId }
+    return {
+      tabs: this.order.map((id) => {
+        const inst = this.instances.get(id)!
+        return { instanceId: id, toolId: inst.toolId, title: inst.title }
+      }),
+      activeId: this.activeId,
+    }
   }
 
   private emitTabs(): void {
     this.win?.webContents.send('shell:tabs', this.tabs())
   }
-  private emitStatus(id: string, status: ToolStatus): void {
-    this.win?.webContents.send('shell:toolStatus', { id, status })
+  private emitStatus(instanceId: string, status: ToolStatus): void {
+    this.win?.webContents.send('shell:toolStatus', { id: instanceId, status })
   }
 
-  /** Open a tool (creating its tab if needed) and focus it. */
-  open(id: string): void {
-    if (!this.tools.get(id) || !this.win) return
-    if (!this.openOrder.includes(id)) {
-      this.ensureView(id)
-      this.openOrder.push(id)
-    }
-    this.activate(id)
+  /** Open a NEW instance of a tool and focus it. */
+  open(toolId: string): void {
+    const tool = this.tools.get(toolId)
+    if (!tool || !this.win) return
+    const instanceId = `${toolId}#${++this.counter}`
+    const view = this.createView(instanceId, tool)
+    this.instances.set(instanceId, {
+      instanceId,
+      toolId,
+      view,
+      loaded: false,
+      title: tool.manifest.name,
+    })
+    this.order.push(instanceId)
+    this.activate(instanceId)
   }
 
-  /** Focus an already-open tab. */
-  activate(id: string): void {
-    if (!this.win || !this.openOrder.includes(id)) return
-    for (const [otherId, v] of this.views) if (otherId !== id) v.setVisible(false)
-    this.activeId = id
-    const view = this.views.get(id)
-    if (view) {
-      this.win.contentView.addChildView(view) // bring to top
-      if (this.loaded.has(id)) {
-        view.setVisible(true)
-        this.layout()
-        this.emitStatus(id, 'ready')
-      } else {
-        view.setVisible(false)
-        this.emitStatus(id, 'loading')
-      }
+  /** Focus an open instance tab. */
+  activate(instanceId: string): void {
+    if (!this.win || !this.instances.has(instanceId)) return
+    for (const inst of this.instances.values())
+      if (inst.instanceId !== instanceId) inst.view.setVisible(false)
+    this.activeId = instanceId
+    const inst = this.instances.get(instanceId)!
+    this.win.contentView.addChildView(inst.view) // bring to top
+    if (inst.loaded) {
+      inst.view.setVisible(true)
+      this.layout()
+      this.emitStatus(instanceId, 'ready')
+    } else {
+      inst.view.setVisible(false)
+      this.emitStatus(instanceId, 'loading')
     }
     this.emitTabs()
   }
 
-  /** Close a tab, destroying its view; focus a neighbour or the home page. */
-  closeTab(id: string): void {
-    const view = this.views.get(id)
-    if (view && this.win) this.win.contentView.removeChildView(view)
-    view?.webContents.close()
-    this.views.delete(id)
-    this.loaded.delete(id)
-    const idx = this.openOrder.indexOf(id)
-    if (idx !== -1) this.openOrder.splice(idx, 1)
-    if (this.activeId === id) {
-      const next = this.openOrder[idx] ?? this.openOrder[idx - 1] ?? null
+  /** Close an instance tab; focus a neighbour or the launcher. */
+  closeTab(instanceId: string): void {
+    const inst = this.instances.get(instanceId)
+    if (!inst) return
+    if (this.win) this.win.contentView.removeChildView(inst.view)
+    inst.view.webContents.close()
+    this.instances.delete(instanceId)
+    const idx = this.order.indexOf(instanceId)
+    if (idx !== -1) this.order.splice(idx, 1)
+    if (this.activeId === instanceId) {
+      const next = this.order[idx] ?? this.order[idx - 1] ?? null
       if (next) this.activate(next)
       else this.showHome()
     } else {
@@ -120,28 +139,24 @@ export class ToolManager {
     }
   }
 
-  /** Show a shell page (home/marketplace): hide all tool views, keep tabs open. */
+  /** Show the launcher: hide all instances, keep tabs open. */
   showHome(): void {
-    for (const v of this.views.values()) v.setVisible(false)
+    for (const inst of this.instances.values()) inst.view.setVisible(false)
     this.activeId = null
     this.emitTabs()
   }
 
   reloadActive(): void {
     if (!this.activeId) return
-    const view = this.views.get(this.activeId)
-    if (!view) return
-    this.loaded.delete(this.activeId)
-    view.setVisible(false)
-    this.emitStatus(this.activeId, 'loading')
-    view.webContents.reload()
+    const inst = this.instances.get(this.activeId)
+    if (!inst) return
+    inst.loaded = false
+    inst.view.setVisible(false)
+    this.emitStatus(inst.instanceId, 'loading')
+    inst.view.webContents.reload()
   }
 
-  private ensureView(id: string): void {
-    if (this.views.has(id) || !this.win) return
-    const tool = this.tools.get(id)
-    if (!tool) return
-
+  private createView(instanceId: string, tool: LoadedTool): WebContentsView {
     const view = new WebContentsView({
       webPreferences: {
         preload: toolPreloadPath(),
@@ -172,34 +187,47 @@ export class ToolManager {
       if (/^https?:/.test(url)) void shell.openExternal(url)
     })
 
-    // Keep hidden until loaded so the shell can show a loading state underneath.
+    // Tab title follows the instance's document title.
+    wc.on('page-title-updated', (_e, title) => {
+      const inst = this.instances.get(instanceId)
+      if (inst && title) {
+        inst.title = title
+        this.emitTabs()
+      }
+    })
+
+    // Hidden until loaded so the shell can show a loading state underneath.
     wc.on('did-finish-load', () => {
-      this.loaded.add(id)
-      if (this.activeId === id) {
-        view.setVisible(true)
+      const inst = this.instances.get(instanceId)
+      if (!inst) return
+      inst.loaded = true
+      if (this.activeId === instanceId) {
+        inst.view.setVisible(true)
         this.layout()
-        this.emitStatus(id, 'ready')
+        this.emitStatus(instanceId, 'ready')
       }
     })
     wc.on('render-process-gone', () => {
-      this.loaded.delete(id)
-      view.setVisible(false)
-      if (this.activeId === id) this.emitStatus(id, 'crashed')
+      const inst = this.instances.get(instanceId)
+      if (!inst) return
+      inst.loaded = false
+      inst.view.setVisible(false)
+      if (this.activeId === instanceId) this.emitStatus(instanceId, 'crashed')
     })
 
-    this.views.set(id, view)
-    this.win.contentView.addChildView(view)
+    if (this.win) this.win.contentView.addChildView(view)
     view.setVisible(false)
-    this.emitStatus(id, 'loading')
+    this.emitStatus(instanceId, 'loading')
     void wc.loadURL(tool.entryUrl)
+    return view
   }
 
-  /** Position the active tool view full-width below the tab bar. */
+  /** Position the active instance view full-width below the tab bar. */
   private layout(): void {
     if (!this.win || !this.activeId) return
-    const view = this.views.get(this.activeId)
-    if (!view) return
+    const inst = this.instances.get(this.activeId)
+    if (!inst) return
     const { width, height } = this.win.getContentBounds()
-    view.setBounds({ x: 0, y: TABBAR_H, width, height: Math.max(0, height - TABBAR_H) })
+    inst.view.setBounds({ x: 0, y: TABBAR_H, width, height: Math.max(0, height - TABBAR_H) })
   }
 }
