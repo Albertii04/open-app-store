@@ -28,8 +28,8 @@ importers:
         specifier: ^20.11.0
         version: 20.19.41
       '@vitejs/plugin-vue':
-        specifier: ^5.2.1
-        version: 5.2.4(vite@5.4.21(@types/node@20.19.41)(lightningcss@1.32.0))(vue@3.5.35(typescript@5.7.3))
+        specifier: ^6.0.7
+        version: 6.0.7(vite@5.4.21(@types/node@20.19.41)(lightningcss@1.32.0))(vue@3.5.35(typescript@5.7.3))
       '@vue/tsconfig':
         specifier: ^0.7.0
         version: 0.7.0(typescript@5.7.3)(vue@3.5.35(typescript@5.7.3))
@@ -90,7 +90,7 @@ importers:
         specifier: ^24.12.3
         version: 24.12.4
       '@vitejs/plugin-vue':
-        specifier: ^6.0.6
+        specifier: ^6.0.7
         version: 6.0.7(vite@8.0.15(@types/node@24.12.4))(vue@3.5.35(typescript@6.0.3))
       '@vue/tsconfig':
         specifier: ^0.9.1
@@ -721,13 +721,6 @@ packages:
 
   '@types/yauzl@2.10.3':
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
-
-  '@vitejs/plugin-vue@5.2.4':
-    resolution: {integrity: sha512-7Yx/SXSOcQq5HiiV3orevHUFn+pmMB4cgbEkDYgnkUWb0WfeQ/wa2yFv6D5ICiCQOVpjA7vYDXrC7AGO8yjDHA==}
-    engines: {node: ^18.0.0 || >=20.0.0}
-    peerDependencies:
-      vite: ^5.0.0 || ^6.0.0
-      vue: ^3.2.25
 
   '@vitejs/plugin-vue@6.0.7':
     resolution: {integrity: sha512-km+p+XdSz9Sxm5rqUbqcSfZYaAniKxWBj1KURl+Jr7UaPvvX7BmaWMdP69I5rrFDeQGyxAG7NXdc57vz+snhWg==}
@@ -2924,8 +2917,9 @@ snapshots:
       '@types/node': 24.12.4
     optional: true
 
-  '@vitejs/plugin-vue@5.2.4(vite@5.4.21(@types/node@20.19.41)(lightningcss@1.32.0))(vue@3.5.35(typescript@5.7.3))':
+  '@vitejs/plugin-vue@6.0.7(vite@5.4.21(@types/node@20.19.41)(lightningcss@1.32.0))(vue@3.5.35(typescript@5.7.3))':
     dependencies:
+      '@rolldown/pluginutils': 1.0.1
       vite: 5.4.21(@types/node@20.19.41)(lightningcss@1.32.0)
       vue: 3.5.35(typescript@5.7.3)
 
