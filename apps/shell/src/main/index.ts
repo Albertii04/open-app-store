@@ -1,5 +1,6 @@
-import { BrowserWindow, app, ipcMain } from 'electron'
+import { BrowserWindow, app, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
+import windowStateKeeper from 'electron-window-state'
 import { installBroker } from './broker.js'
 import { ToolManager } from './tools.js'
 
@@ -9,13 +10,24 @@ function shellPreloadPath(): string {
   return join(app.getAppPath(), 'out/preload/shell.js')
 }
 
+// Only one instance of the app; focus the existing window if launched again.
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+}
+
 async function createWindow(): Promise<void> {
+  // Remember window size/position across launches.
+  const state = windowStateKeeper({ defaultWidth: 1280, defaultHeight: 800 })
+
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    x: state.x,
+    y: state.y,
+    width: state.width,
+    height: state.height,
     minWidth: 940,
     minHeight: 600,
-    backgroundColor: '#04060b',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#fafafa',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     show: false,
     webPreferences: {
@@ -26,8 +38,21 @@ async function createWindow(): Promise<void> {
     },
   })
 
+  state.manage(win)
   manager.attach(win)
   win.once('ready-to-show', () => win.show())
+
+  // The shell UI never opens windows or navigates away; route any attempt
+  // (e.g. an external link) to the OS browser and block in-app navigation.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/.test(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (e, url) => {
+    const devUrl = process.env.ELECTRON_RENDERER_URL
+    if (devUrl && url.startsWith(devUrl)) return
+    e.preventDefault()
+  })
 
   const devUrl = process.env.ELECTRON_RENDERER_URL
   if (devUrl && !app.isPackaged) {
@@ -41,17 +66,25 @@ async function createWindow(): Promise<void> {
 function installShellIpc(): void {
   ipcMain.handle('shell:listTools', () => manager.summaries())
   ipcMain.handle('shell:openTool', (_e, id: string) => manager.open(id))
+  ipcMain.handle('shell:activateTool', (_e, id: string) => manager.activate(id))
+  ipcMain.handle('shell:closeTool', (_e, id: string) => manager.closeTab(id))
+  ipcMain.handle('shell:showHome', () => manager.showHome())
   ipcMain.handle('shell:reloadActiveTool', () => manager.reloadActive())
-  ipcMain.handle('shell:closeActiveTool', () => manager.closeActive())
-  ipcMain.handle('shell:getActiveToolId', () => manager.getActiveToolId())
+  ipcMain.handle('shell:getTabs', () => manager.tabs())
 }
+
+app.on('second-instance', () => {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  }
+})
 
 app.whenReady().then(async () => {
   installBroker()
   installShellIpc()
   await manager.load()
-  console.log(`[toolbox] loaded ${manager.summaries().length} tool(s):`,
-    manager.summaries().map((t) => t.id).join(', '))
   await createWindow()
 
   app.on('activate', () => {
