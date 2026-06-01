@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC, type ToolboxApi } from '@toolbox/sdk'
+import { AUTHORING_CHAT_EVENT, IPC, type ToolboxApi } from '@toolbox/sdk'
 
 /** Tool identity is injected via additionalArguments (see ToolManager.open). */
 function arg(prefix: string): string {
@@ -42,6 +42,14 @@ const api: ToolboxApi = {
   },
   authoring: {
     previewUrl: () => ipcRenderer.invoke(IPC.authoringPreviewUrl),
+    createPresentation: (name) => ipcRenderer.invoke(IPC.authoringCreate, name),
+    deletePresentation: (id) => ipcRenderer.invoke(IPC.authoringDelete, id),
+    sendChat: (presId, message) => ipcRenderer.invoke(IPC.authoringChat, presId, message),
+    onChat: (cb) => {
+      const listener = (_e: unknown, ev: Parameters<typeof cb>[0]): void => cb(ev)
+      ipcRenderer.on(AUTHORING_CHAT_EVENT, listener)
+      return () => ipcRenderer.removeListener(AUTHORING_CHAT_EVENT, listener)
+    },
   },
 }
 
