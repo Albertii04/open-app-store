@@ -11,6 +11,7 @@ const params = new URLSearchParams(location.search)
 const isPresenter = params.has('p')
 
 function mountDeck(presentation: Presentation): void {
+  document.title = presentation.meta.name
   // A presentation may ship its own presenter console (escape hatch).
   const Root: Component = isPresenter ? (presentation.Presenter ?? PresenterConsole) : AudienceDeck
   createApp(Root, { presentation }).mount('#app')
@@ -31,6 +32,7 @@ async function boot(): Promise<void> {
     const p = getPresentation(presId)
     if (p) return mountDeck(p)
   }
+  document.title = 'Presenter'
   createApp(Home).mount('#app')
 }
 

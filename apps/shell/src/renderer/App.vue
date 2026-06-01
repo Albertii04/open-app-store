@@ -19,7 +19,7 @@ type View = 'home' | 'market'
 const isMac = navigator.platform.toLowerCase().includes('mac')
 
 const tools = ref<ToolSummary[]>([])
-const tabs = ref<TabsState>({ openIds: [], activeId: null })
+const tabs = ref<TabsState>({ tabs: [], activeId: null })
 const activeStatus = ref<ToolStatus | null>(null)
 const view = ref<View>('home')
 const query = ref('')
@@ -28,11 +28,7 @@ const fallbackIcon =
   '<svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="currentColor" opacity="0.12"/><rect x="20" y="20" width="24" height="24" rx="6" fill="currentColor" opacity="0.5"/></svg>'
 
 const activeId = computed(() => tabs.value.activeId)
-const byId = (id: string) => tools.value.find((t) => t.id === id) ?? null
-const openTools = computed(() =>
-  tabs.value.openIds.map(byId).filter((t): t is ToolSummary => t !== null),
-)
-const activeTool = computed(() => (activeId.value ? byId(activeId.value) : null))
+const iconOf = (toolId: string) => tools.value.find((t) => t.id === toolId)?.iconSvg ?? fallbackIcon
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -47,26 +43,21 @@ async function refresh(): Promise<void> {
   tabs.value = await window.shellApi.getTabs()
 }
 
-function openTool(id: string): void {
-  if (tabs.value.activeId !== id) activeStatus.value = 'loading'
-  void window.shellApi.openTool(id)
+function openTool(toolId: string): void {
+  activeStatus.value = 'loading'
+  void window.shellApi.openTool(toolId)
 }
-function activateTab(id: string): void {
-  void window.shellApi.activateTool(id)
+function activateTab(instanceId: string): void {
+  void window.shellApi.activateTool(instanceId)
 }
-function closeTab(id: string): void {
-  void window.shellApi.closeTool(id)
+function closeTab(instanceId: string): void {
+  void window.shellApi.closeTool(instanceId)
 }
 function reloadTool(): void {
   activeStatus.value = 'loading'
   void window.shellApi.reloadActiveTool()
 }
 function goHome(): void {
-  view.value = 'home'
-  void window.shellApi.showHome()
-}
-function goMarket(): void {
-  view.value = 'market'
   void window.shellApi.showHome()
 }
 
@@ -85,57 +76,65 @@ onMounted(() => {
 
 <template>
   <div
-    class="h-screen w-screen overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
+    class="flex h-screen w-screen flex-col overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100"
   >
-    <!-- ============ TOOL MODE: full-screen tool, no sidebar ============ -->
-    <div v-if="activeId" class="flex h-full flex-col">
-      <div
-        class="drag flex h-10 shrink-0 items-center gap-1 border-b border-neutral-200 pr-2 dark:border-neutral-800"
-        :class="isMac ? 'pl-20' : 'pl-2'"
+    <!-- Persistent tab bar -->
+    <div
+      class="drag flex h-10 shrink-0 items-center gap-1 border-b border-neutral-200 pr-2 dark:border-neutral-800"
+      :class="isMac ? 'pl-20' : 'pl-2'"
+    >
+      <button
+        class="no-drag grid size-7 shrink-0 place-items-center rounded-md transition-colors"
+        :class="
+          !activeId
+            ? 'bg-neutral-200/80 text-neutral-900 dark:bg-neutral-800 dark:text-white'
+            : 'text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white'
+        "
+        title="Inicio"
+        @click="goHome"
       >
-        <button
-          class="no-drag mr-1 grid size-7 place-items-center rounded-md text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
-          title="Inicio"
-          @click="goHome"
-        >
-          <House class="size-4" />
-        </button>
+        <House class="size-4" />
+      </button>
 
-        <TransitionGroup name="tab" tag="div" class="relative flex items-center gap-1">
-          <button
-            v-for="t in openTools"
-            :key="t.id"
-            class="tab no-drag group flex max-w-44 items-center gap-2 rounded-md px-2 py-1 text-[12px] transition-colors"
-            :class="
-              activeId === t.id
-                ? 'bg-neutral-200/80 text-neutral-900 dark:bg-neutral-800 dark:text-white'
-                : 'text-neutral-500 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50'
-            "
-            @click="activateTab(t.id)"
+      <TransitionGroup name="tab" tag="div" class="relative flex items-center gap-1 overflow-hidden">
+        <button
+          v-for="t in tabs.tabs"
+          :key="t.instanceId"
+          class="tab no-drag group flex max-w-44 items-center gap-2 rounded-md px-2 py-1 text-[12px] transition-colors"
+          :class="
+            activeId === t.instanceId
+              ? 'bg-neutral-200/80 text-neutral-900 dark:bg-neutral-800 dark:text-white'
+              : 'text-neutral-500 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50'
+          "
+          @click="activateTab(t.instanceId)"
+        >
+          <span class="tool-glyph grid size-4 shrink-0 place-items-center overflow-hidden" v-html="iconOf(t.toolId)"></span>
+          <span class="truncate">{{ t.title }}</span>
+          <span
+            class="grid size-4 place-items-center rounded text-neutral-400 hover:bg-neutral-300/60 hover:text-neutral-700 dark:hover:bg-neutral-700 dark:hover:text-white"
+            @click.stop="closeTab(t.instanceId)"
           >
-            <span class="tool-glyph grid size-4 shrink-0 place-items-center overflow-hidden" v-html="t.iconSvg ?? fallbackIcon"></span>
-            <span class="truncate">{{ t.name }}</span>
-            <span
-              class="grid size-4 place-items-center rounded text-neutral-400 hover:bg-neutral-300/60 hover:text-neutral-700 dark:hover:bg-neutral-700 dark:hover:text-white"
-              @click.stop="closeTab(t.id)"
-            >
-              <X class="size-3" />
-            </span>
-          </button>
-        </TransitionGroup>
-
-        <div class="flex-1" />
-
-        <button
-          class="no-drag grid size-7 place-items-center rounded-md text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
-          title="Recargar"
-          @click="reloadTool"
-        >
-          <RefreshCw class="size-4" />
+            <X class="size-3" />
+          </span>
         </button>
-      </div>
+      </TransitionGroup>
 
-      <div class="relative flex-1 overflow-hidden">
+      <div class="flex-1" />
+
+      <button
+        v-if="activeId"
+        class="no-drag grid size-7 place-items-center rounded-md text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
+        title="Recargar"
+        @click="reloadTool"
+      >
+        <RefreshCw class="size-4" />
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="relative flex-1 overflow-hidden">
+      <!-- Active tool instance: native view sits here; loading/crash underneath -->
+      <template v-if="activeId">
         <Transition name="fade">
           <div
             v-if="activeStatus === 'loading'"
@@ -143,123 +142,74 @@ onMounted(() => {
             class="absolute inset-0 flex flex-col items-center justify-center gap-3"
           >
             <Loader class="size-7 animate-spin text-indigo-500" />
-            <p class="text-[13px] text-neutral-500">Cargando {{ activeTool?.name }}…</p>
+            <p class="text-[13px] text-neutral-500">Cargando…</p>
           </div>
           <div
             v-else-if="activeStatus === 'crashed'"
             key="crashed"
             class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center"
           >
-          <TriangleAlert class="size-7 text-amber-500" />
-          <p class="text-sm font-semibold">La herramienta ha fallado</p>
-          <p class="text-[13px] text-neutral-500">
-            El proceso de “{{ activeTool?.name }}” se ha detenido.
-          </p>
-          <button
-            class="mt-1 rounded-lg bg-indigo-500 px-4 py-1.5 text-[13px] font-medium text-white hover:bg-indigo-600"
-            @click="reloadTool"
-          >
-            Recargar
-          </button>
+            <TriangleAlert class="size-7 text-amber-500" />
+            <p class="text-sm font-semibold">La herramienta ha fallado</p>
+            <button
+              class="mt-1 rounded-lg bg-indigo-500 px-4 py-1.5 text-[13px] font-medium text-white hover:bg-indigo-600"
+              @click="reloadTool"
+            >
+              Recargar
+            </button>
           </div>
         </Transition>
-      </div>
-    </div>
+      </template>
 
-    <!-- ============ LAUNCHER MODE: sidebar + home/marketplace ============ -->
-    <div v-else class="flex h-full">
-      <aside
-        class="flex w-64 shrink-0 flex-col border-r border-neutral-200/80 bg-neutral-100/60 dark:border-neutral-800/80 dark:bg-neutral-900/40"
-      >
-        <div class="drag flex items-center gap-2.5 px-4 pb-3 pt-8">
-          <div
-            class="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm"
-          >
-            <Boxes class="size-4" />
-          </div>
-          <span class="text-[13px] font-semibold tracking-tight">Alberts Toolbox</span>
-        </div>
-
-        <div class="no-drag px-3 pb-2">
-          <div
-            class="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 dark:border-neutral-800 dark:bg-neutral-900"
-          >
-            <Search class="size-3.5 text-neutral-400" />
-            <input
-              v-model="query"
-              type="text"
-              placeholder="Buscar herramientas"
-              class="w-full bg-transparent text-[13px] outline-none placeholder:text-neutral-400"
-            />
-          </div>
-        </div>
-
-        <nav class="flex flex-col gap-0.5 px-2 pt-1">
-          <button
-            class="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors"
-            :class="
-              view === 'home'
-                ? 'bg-neutral-200/70 text-neutral-900 dark:bg-neutral-800 dark:text-white'
-                : 'text-neutral-600 hover:bg-neutral-200/50 dark:text-neutral-400 dark:hover:bg-neutral-800/60'
-            "
-            @click="view = 'home'"
-          >
-            <House class="size-4" /> Inicio
-          </button>
-          <button
-            class="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors"
-            :class="
-              view === 'market'
-                ? 'bg-neutral-200/70 text-neutral-900 dark:bg-neutral-800 dark:text-white'
-                : 'text-neutral-600 hover:bg-neutral-200/50 dark:text-neutral-400 dark:hover:bg-neutral-800/60'
-            "
-            @click="view = 'market'"
-          >
-            <Store class="size-4" /> Marketplace
-          </button>
-        </nav>
-
-        <div
-          class="px-3.5 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500"
-        >
-          Herramientas
-        </div>
-        <ul class="flex-1 space-y-0.5 overflow-y-auto px-2">
-          <li v-for="t in filtered" :key="t.id">
-            <button
-              class="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] text-neutral-700 transition-colors hover:bg-neutral-200/50 dark:text-neutral-300 dark:hover:bg-neutral-800/60"
-              @click="openTool(t.id)"
+      <!-- Launcher -->
+      <div v-else class="h-full overflow-y-auto">
+        <div class="mx-auto max-w-5xl px-8 py-10">
+          <header class="mb-6 flex items-center gap-3">
+            <div
+              class="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm"
             >
-              <span
-                class="tool-glyph grid size-6 shrink-0 place-items-center overflow-hidden rounded-md bg-white text-neutral-500 ring-1 ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-neutral-700"
-                v-html="t.iconSvg ?? fallbackIcon"
-              ></span>
-              <span class="flex-1 truncate text-left">{{ t.name }}</span>
-              <span
-                v-if="tabs.openIds.includes(t.id)"
-                class="size-1.5 rounded-full bg-neutral-400 dark:bg-neutral-600"
-                title="Abierta"
-              />
-            </button>
-          </li>
-        </ul>
-
-        <div
-          class="border-t border-neutral-200/70 px-3.5 py-2.5 text-[10px] text-neutral-400 dark:border-neutral-800/70 dark:text-neutral-600"
-        >
-          v0.1.0 · first-party
-        </div>
-      </aside>
-
-      <main class="flex-1 overflow-y-auto">
-        <!-- Home -->
-        <div v-if="view === 'home'" class="mx-auto max-w-5xl px-8 py-8">
-          <header class="mb-7">
-            <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-500">
-              Tu caja de herramientas
-            </p>
-            <h1 class="text-2xl font-semibold tracking-tight">Inicio</h1>
+              <Boxes class="size-5" />
+            </div>
+            <div>
+              <h1 class="text-xl font-semibold tracking-tight">Alberts Toolbox</h1>
+              <p class="text-[12px] text-neutral-500">Abre una herramienta — cada una en su pestaña.</p>
+            </div>
           </header>
+
+          <div class="mb-6 flex items-center gap-3">
+            <div
+              class="flex flex-1 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900"
+            >
+              <Search class="size-4 text-neutral-400" />
+              <input
+                v-model="query"
+                type="text"
+                placeholder="Buscar herramientas"
+                class="w-full bg-transparent text-[13px] outline-none placeholder:text-neutral-400"
+              />
+            </div>
+            <div class="flex rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-800">
+              <button
+                class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors"
+                :class="view === 'home' ? 'bg-neutral-200/80 dark:bg-neutral-800' : 'text-neutral-500'"
+                @click="view = 'home'"
+              >
+                <House class="size-3.5" /> Inicio
+              </button>
+              <button
+                class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors"
+                :class="view === 'market' ? 'bg-neutral-200/80 dark:bg-neutral-800' : 'text-neutral-500'"
+                @click="view = 'market'"
+              >
+                <Store class="size-3.5" /> Marketplace
+              </button>
+            </div>
+          </div>
+
+          <p v-if="view === 'market'" class="mb-5 max-w-xl text-[13px] leading-relaxed text-neutral-500">
+            La instalación de herramientas de la comunidad desde un registro en GitHub llega en una
+            fase posterior. De momento se muestran las herramientas first-party incluidas.
+          </p>
 
           <div
             v-if="filtered.length"
@@ -301,45 +251,12 @@ onMounted(() => {
               <template v-if="query">Prueba otra búsqueda.</template>
               <template v-else>
                 Copia <code class="text-indigo-500">templates/tool-starter</code> en
-                <code class="text-indigo-500">tools/</code>, ajusta su
-                <code class="text-indigo-500">toolbox.json</code> y reconstruye.
+                <code class="text-indigo-500">tools/</code> y reconstruye.
               </template>
             </p>
           </div>
         </div>
-
-        <!-- Marketplace -->
-        <div v-else class="mx-auto max-w-5xl px-8 py-8">
-          <header class="mb-7">
-            <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-500">
-              Comunidad
-            </p>
-            <h1 class="text-2xl font-semibold tracking-tight">Marketplace</h1>
-          </header>
-          <p class="mb-6 max-w-xl text-[13px] leading-relaxed text-neutral-500">
-            La instalación de herramientas de la comunidad desde un registro en GitHub llega en una
-            fase posterior. De momento se muestran las herramientas first-party incluidas.
-          </p>
-          <div class="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-3">
-            <div
-              v-for="t in filtered"
-              :key="t.id"
-              class="flex flex-col items-start gap-2 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-            >
-              <span
-                class="tool-glyph grid size-11 place-items-center overflow-hidden rounded-lg bg-neutral-100 text-neutral-500 ring-1 ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-neutral-700"
-                v-html="t.iconSvg ?? fallbackIcon"
-              ></span>
-              <span class="mt-1 text-[15px] font-semibold tracking-tight">{{ t.name }}</span>
-              <span
-                class="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
-              >
-                Instalada
-              </span>
-            </div>
-          </div>
-        </div>
-      </main>
+      </div>
     </div>
   </div>
 </template>
