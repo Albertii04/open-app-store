@@ -4,6 +4,7 @@ import { AudienceDeck, PresenterConsole } from './engine'
 import { getPresentation } from './presentations'
 import type { Presentation } from './engine/types'
 import Home from './Home.vue'
+import Editor from './Editor.vue'
 import { loadDoc } from './documents/store'
 import { documentToPresentation } from './documents/render'
 
@@ -11,6 +12,7 @@ const params = new URLSearchParams(location.search)
 const isPresenter = params.has('p')
 
 function mountDeck(presentation: Presentation): void {
+  document.title = presentation.meta.name
   // A presentation may ship its own presenter console (escape hatch).
   const Root: Component = isPresenter ? (presentation.Presenter ?? PresenterConsole) : AudienceDeck
   createApp(Root, { presentation }).mount('#app')
@@ -21,6 +23,15 @@ function mountDeck(presentation: Presentation): void {
 //   ?pres=<id> → a bundled presentation (e.g. the Concep example)
 //   otherwise  → the Home dashboard
 async function boot(): Promise<void> {
+  const editId = params.get('edit')
+  if (editId) {
+    const doc = await loadDoc(editId)
+    if (doc) {
+      document.title = `${doc.name} — Editor`
+      createApp(Editor, { doc }).mount('#app')
+      return
+    }
+  }
   const docId = params.get('doc')
   if (docId) {
     const doc = await loadDoc(docId)
@@ -31,6 +42,7 @@ async function boot(): Promise<void> {
     const p = getPresentation(presId)
     if (p) return mountDeck(p)
   }
+  document.title = 'Presenter'
   createApp(Home).mount('#app')
 }
 
