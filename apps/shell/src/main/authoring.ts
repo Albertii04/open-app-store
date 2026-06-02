@@ -82,18 +82,28 @@ export function sendChat(
 ): Promise<void> {
   return new Promise((resolveP) => {
     const folder = join(presentationsDir(), presId)
+    const blocks = join(presenterDir(), 'blocks')
+    const prev = sessionByPres.get(presId)
+
+    // On the first turn of a session, prepend a preamble pointing Claude at the
+    // engine contract + the reusable block library. Later turns resume context.
+    const prompt = prev
+      ? message
+      : `Estás editando una presentación de código (Vue 3 + GSAP) sobre el engine de Presenter, en la carpeta actual (cwd). Si existe una carpeta source/, contiene material de referencia del usuario (imágenes, archivos, código) — úsalo. Hay una librería de bloques reutilizables en ${blocks}: LEE primero ${blocks}/INDEX.md (contrato del engine: SlideEntry, controls, useSliderState, defineExpose) y reutiliza los bloques que encajen copiándolos y siguiendo su block.md, en vez de reinventar la integración con el presenter. Petición del usuario: ${message}`
+
     const args = [
       '-p',
-      message,
+      prompt,
       '--output-format',
       'stream-json',
       '--verbose',
+      '--add-dir',
+      blocks,
       '--allowedTools',
       'Read,Edit,Write,Glob,Grep,WebFetch',
       '--permission-mode',
       'acceptEdits',
     ]
-    const prev = sessionByPres.get(presId)
     if (prev) args.push('--resume', prev)
 
     // Ensure ~/.local/bin (where `claude` lives) is on PATH.
