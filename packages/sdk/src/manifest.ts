@@ -1,11 +1,46 @@
 /**
- * Tool manifest schema + capability model.
+ * App manifest schema + capability model.
  *
- * A tool is a folder with a `toolbox.json` (this shape) and a built web entry.
- * Capabilities are DECLARED here and ENFORCED by the shell's capability broker.
- * Anything not declared is denied at the IPC layer — a pure-web tool (`[]`)
- * can do nothing native.
+ * Every catalog entry is an APP whose `kind` selects how it is delivered:
+ *   - `web`    — a folder with a `toolbox.json` (this shape) + a built web
+ *                entry; runs in-shell in a sandboxed view. Capabilities are
+ *                DECLARED here and ENFORCED by the broker — anything not
+ *                declared is denied at the IPC layer (`[]` = can do nothing
+ *                native).
+ *   - `native` — installed on the user's machine by orchestrating an OS
+ *                package manager (declared in `installers`); nothing runs
+ *                in-shell, so it has no `entry` and no capabilities.
+ *
+ * This single shape keeps the hybrid one product: one catalog, one Install
+ * button, the `kind` just picks the backend.
  */
+
+/** How an app is delivered. Defaults to `web`. */
+export const APP_KINDS = ['web', 'native'] as const;
+export type AppKind = (typeof APP_KINDS)[number];
+
+/** OS package managers a `native` app can be installed through. */
+export const PACKAGE_MANAGERS = ['brew', 'winget', 'scoop', 'flatpak'] as const;
+export type PackageManager = (typeof PACKAGE_MANAGERS)[number];
+
+/**
+ * Per-manager package id for a `native` app — the id passed to the manager,
+ * e.g. { brew: 'gimp', winget: 'GIMP.GIMP', flatpak: 'org.gimp.GIMP' }.
+ * At least one entry is required for a `native` app.
+ */
+export type Installers = Partial<Record<PackageManager, string>>;
+
+/** Quality/maintenance/security signals, refreshed out of band. All optional. */
+export interface AppMetrics {
+  /** Source repository the signals derive from. */
+  repo?: string;
+  /** GitHub stars. */
+  stars?: number;
+  /** ISO date of the most recent commit. */
+  lastCommit?: string;
+  /** Count of known open CVEs. */
+  openCves?: number;
+}
 
 /** Native capabilities a tool may request. Default deny. */
 export const CAPABILITY_NAMES = [
@@ -32,18 +67,40 @@ export type CapabilityRequest =
   | { name: 'net'; domains: string[] };
 
 export interface ToolManifest {
-  /** Globally unique, namespaced id, e.g. "primlux.deck". */
+  /** Globally unique, namespaced id, e.g. "primlux.deck" or "org.gimp". */
   id: string;
   name: string;
   /** Semver. */
   version: string;
-  /** Path (relative to the tool root) to an icon, e.g. "icon.svg". */
+  /** How this app is delivered. Defaults to `web` when omitted. */
+  kind?: AppKind;
+  /** Path (relative to the app root) to an icon, e.g. "icon.svg". */
   icon?: string;
-  /** Path (relative to the tool root) to the built entry HTML, e.g. "dist/index.html". */
-  entry: string;
+  /**
+   * `web` only: path (relative to the app root) to the built entry HTML,
+   * e.g. "dist/index.html". Required for `web`, ignored for `native`.
+   */
+  entry?: string;
   description?: string;
   author?: string;
+  /** Paid/proprietary products this app is an open alternative to, e.g. ["Photoshop"]. */
+  replaces?: string[];
+  /** `web` only: native capabilities, enforced by the broker. */
   capabilities?: CapabilityRequest[];
+  /** `native` only: per-manager package ids. At least one required for `native`. */
+  installers?: Installers;
+  /** Quality/maintenance/security signals (refreshed out of band). */
+  metrics?: AppMetrics;
+}
+
+/** Resolve a manifest's kind, defaulting to `web`. */
+export function appKind(manifest: ToolManifest): AppKind {
+  return manifest.kind ?? 'web';
+}
+
+/** True if the app installs via a package manager rather than running in-shell. */
+export function isNative(manifest: ToolManifest): boolean {
+  return appKind(manifest) === 'native';
 }
 
 const ID_RE = /^[a-z0-9]+(?:[.-][a-z0-9]+)+$/;
@@ -77,7 +134,63 @@ export function validateManifest(input: unknown): string[] {
   if (typeof m.name !== 'string' || !m.name) errors.push('name is required');
   if (typeof m.version !== 'string' || !/^\d+\.\d+\.\d+/.test(m.version))
     errors.push('version must be semver, e.g. "1.0.0"');
-  if (typeof m.entry !== 'string' || !m.entry) errors.push('entry is required');
+
+  // Resolve kind first — it decides which fields are required.
+  let kind: AppKind = 'web';
+  if (m.kind !== undefined) {
+    if (!(APP_KINDS as readonly string[]).includes(m.kind as string)) {
+      errors.push(`kind must be one of: ${APP_KINDS.join(', ')}`);
+    } else {
+      kind = m.kind as AppKind;
+    }
+  }
+
+  if (kind === 'web') {
+    if (typeof m.entry !== 'string' || !m.entry) errors.push('entry is required for a web app');
+    if (m.installers !== undefined)
+      errors.push('installers is only valid for a native app (kind: "native")');
+  } else {
+    // native
+    if (m.entry !== undefined) errors.push('a native app must not declare an entry');
+    if (m.capabilities !== undefined)
+      errors.push('a native app cannot declare capabilities (it does not run in-shell)');
+    if (
+      typeof m.installers !== 'object' ||
+      m.installers === null ||
+      Array.isArray(m.installers) ||
+      Object.keys(m.installers as object).length === 0
+    ) {
+      errors.push('a native app requires a non-empty "installers" map');
+    } else {
+      for (const [pm, ref] of Object.entries(m.installers as Record<string, unknown>)) {
+        if (!(PACKAGE_MANAGERS as readonly string[]).includes(pm))
+          errors.push(`unknown package manager in installers: "${pm}"`);
+        if (typeof ref !== 'string' || !ref)
+          errors.push(`installers.${pm} must be a non-empty package id`);
+      }
+    }
+  }
+
+  if (m.replaces !== undefined) {
+    if (!Array.isArray(m.replaces) || m.replaces.some((r) => typeof r !== 'string' || !r))
+      errors.push('replaces must be an array of non-empty strings');
+  }
+
+  if (m.metrics !== undefined) {
+    const mm = m.metrics as Record<string, unknown>;
+    if (typeof mm !== 'object' || mm === null || Array.isArray(mm)) {
+      errors.push('metrics must be an object');
+    } else {
+      if (mm.repo !== undefined && typeof mm.repo !== 'string')
+        errors.push('metrics.repo must be a string');
+      if (mm.stars !== undefined && typeof mm.stars !== 'number')
+        errors.push('metrics.stars must be a number');
+      if (mm.lastCommit !== undefined && typeof mm.lastCommit !== 'string')
+        errors.push('metrics.lastCommit must be a string (ISO date)');
+      if (mm.openCves !== undefined && typeof mm.openCves !== 'number')
+        errors.push('metrics.openCves must be a number');
+    }
+  }
 
   if (m.capabilities !== undefined) {
     if (!Array.isArray(m.capabilities)) {
