@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "generatedAt": "2026-06-07T10:38:51.022Z",
+  "apps": [
+    {
+      "id": "albert.presenter",
+      "kind": "web",
+      "name": "Presenter",
+      "description": "AI presentation builder — chat edits the real code of each deck, with live preview, present mode, notes and timer.",
+      "author": "Albert Marimón",
+      "icon": "https://raw.githubusercontent.com/Albertii04/Alberts-Toolbox/main/tools/presenter/icon.svg",
+      "replaces": [
+        "PowerPoint",
+        "Keynote",
+        "Gamma"
+      ],
+      "version": "1.0.0",
+      "metrics": {
+        "repo": "https://github.com/Albertii04/Alberts-Toolbox"
+      },
+      "resolvedFrom": "manual",
+      "resolvedAt": "2026-06-07T10:38:48.835Z"
+    },
+    {
+      "id": "org.gimp",
+      "kind": "native",
+      "name": "GIMP",
+      "description": "Full-featured raster image editor — layers, masks, filters, scripting.",
+      "author": "The GIMP Team",
+      "icon": "https://gitlab.gnome.org/GNOME/gimp/-/raw/master/desktop/org.gimp.GIMP.svg",
+      "replaces": [
+        "Photoshop"
+      ],
+      "version": "2.10.38",
+      "installers": {
+        "brew": "gimp",
+        "winget": "GIMP.GIMP",
+        "flatpak": "org.gimp.GIMP"
+      },
+      "metrics": {
+        "repo": "https://gitlab.gnome.org/GNOME/gimp"
+      },
+      "resolvedFrom": "manual",
+      "resolvedAt": "2026-06-07T10:38:48.839Z"
+    },
+    {
+      "id": "org.localsend",
+      "kind": "native",
+      "name": "LocalSend",
+      "description": "Share files and messages to nearby devices over the local network — no internet, no accounts.",
+      "author": "LocalSend",
+      "replaces": [
+        "AirDrop",
+        "Snapdrop"
+      ],
+      "version": "1.17.0",
+      "downloads": {
+        "darwin-arm64": {
+          "url": "https://github.com/localsend/localsend/releases/download/v1.17.0/LocalSend-1.17.0.dmg"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/localsend/localsend/releases/download/v1.17.0/LocalSend-1.17.0.dmg"
+        },
+        "win32-x64": {
+          "url": "https://github.com/localsend/localsend/releases/download/v1.17.0/LocalSend-1.17.0-windows-x86-64.exe"
+        },
+        "linux-x64": {
+          "url": "https://github.com/localsend/localsend/releases/download/v1.17.0/LocalSend-1.17.0-linux-x86-64.AppImage"
+        }
+      },
+      "metrics": {
+        "repo": "https://github.com/localsend/localsend",
+        "stars": 82935,
+        "lastCommit": "2026-06-05T10:03:22Z"
+      },
+      "resolvedFrom": "localsend/localsend",
+      "resolvedAt": "2026-06-07T10:38:48.839Z",
+      "notes": "### Summary\r\n\r\nA small interim release before WebRTC is stable (https://github.com/localsend/localsend/pull/2204)\r\n\r\n- feat: add advanced setting to filter network interfaces (@Tienisto)\r\n- feat(mobile): swipe gesture to select multiple media files (@Tienisto)\r\n- feat(windows): when pasting an image, automatically convert it to PNG (@BrianMwit)\r\n- feat(android): add option to open gallery when image/video was automatically saved (@Tienisto)\r\n- fix: path traversal vulnerability when saving files (@Tienisto)\r\n- fix: black screen when tapping on \"Back\" twice in \"Share via link\" (@Tienisto)\r\n- fix(macos): window disappears on command key when minimize to tray is enabled (@Tienisto)\r\n- fix(windows): do not poll local IP resulting in unwanted location permissions (@Tienisto)\r\n\r\n[Full Changelog](https://github.com/localsend/localsend/blob/main/app/assets/CHANGELOG.md)\r\n",
+      "images": [
+        "https://localsend.org/img/sponsors/tesmu.svg",
+        "https://localsend.org/img/screenshot-iphone.webp",
+        "https://localsend.org/img/screenshot-pc.webp",
+        "https://hosted.weblate.org/widget/localsend/app/multi-auto.svg",
+        "https://contrib.rocks/image?repo=localsend/localsend"
+      ],
+      "publishedAt": "2025-02-20T01:23:55Z"
+    },
+    {
+      "id": "com.jgraph.drawio",
+      "kind": "native",
+      "name": "draw.io",
+      "description": "Diagramming app — flowcharts, UML, network and architecture diagrams, fully offline.",
+      "author": "JGraph",
+      "replaces": [
+        "Visio",
+        "Lucidchart"
+      ],
+      "version": "30.0.4",
+      "downloads": {
+        "darwin-arm64": {
+          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/draw.io-arm64-30.0.4.dmg"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/draw.io-universal-30.0.4.dmg"
+        },
+        "win32-x64": {
+          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/draw.io-30.0.4-windows-installer.exe"
+        },
+        "linux-x64": {
+          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/drawio-x86_64-30.0.4.AppImage"
+        }
+      },
+      "metrics": {
+        "repo": "https://github.com/jgraph/drawio-desktop",
+        "stars": 61482,
+        "lastCommit": "2026-06-05T13:24:20Z"
+      },
+      "resolvedFrom": "jgraph/drawio-desktop",
+      "resolvedAt": "2026-06-07T10:38:49.689Z",
+      "notes": "## Releases Notes for 30.0.4\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/draw.io-30.0.4-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/draw.io-30.0.4-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/draw.io-universal-30.0.4.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/drawio-amd64-30.0.4.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/drawio-x86_64-30.0.4.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/drawio-x86_64-30.0.4.rpm)\r\n\r\nWindows intel x32 releases are marked -ia32-\r\n\r\n**ChangeLog:**\r\n\r\n- Uses electron 42.3.0\r\n- Updates to [draw.io core 30.0.4](https://github.com/jgraph/drawio/blob/v30.0.4/ChangeLog).",
+      "images": [],
+      "publishedAt": "2026-05-27T17:35:46Z"
+    },
+    {
+      "id": "com.logseq.logseq",
+      "kind": "native",
+      "name": "Logseq",
+      "description": "Local-first outliner and knowledge base over plain markdown with backlinks and graph view.",
+      "author": "Logseq",
+      "replaces": [
+        "Notion",
+        "Roam Research"
+      ],
+      "version": "0.10.15",
+      "downloads": {
+        "darwin-arm64": {
+          "url": "https://github.com/logseq/logseq/releases/download/0.10.15/Logseq-darwin-arm64-0.10.15.dmg"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/logseq/logseq/releases/download/0.10.15/Logseq-darwin-x64-0.10.15.dmg"
+        },
+        "win32-x64": {
+          "url": "https://github.com/logseq/logseq/releases/download/0.10.15/Logseq-win-x64-0.10.15.exe"
+        },
+        "linux-x64": {
+          "url": "https://github.com/logseq/logseq/releases/download/0.10.15/Logseq-linux-x64-0.10.15.AppImage"
+        }
+      },
+      "metrics": {
+        "repo": "https://github.com/logseq/logseq",
+        "stars": 43263,
+        "lastCommit": "2026-06-07T10:11:44Z"
+      },
+      "resolvedFrom": "logseq/logseq",
+      "resolvedAt": "2026-06-07T10:38:50.359Z",
+      "notes": "- ## Beta 0.10.15 [[Dec 1st, 2025]]\r\n  Desktop app and Android App download link: https://github.com/logseq/logseq/releases/tag/0.10.15  \r\n\t- [[Fixed issues]]\r\n\t\t- Fix: Youtube embeds not working\r\n\t- [[Enhancement]]\r\n\t\t- Bump Electron to 38.4.0",
+      "images": [
+        "https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif",
+        "https://user-images.githubusercontent.com/25513724/220608753-f33db466-af72-4611-b603-411440c15ed0.png?sanatize=true",
+        "https://opencollective.com/logseq/tiers/sponsors.svg?avatarHeight=42&width=600",
+        "https://contrib.rocks/image?repo=logseq/logseq&max=300&columns=14",
+        "https://api.producthunt.com/widgets/embed-image/v1/review.svg?post_id=298158&theme=dark"
+      ],
+      "publishedAt": "2025-12-01T12:33:43Z"
+    }
+  ]
+}
