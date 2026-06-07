@@ -22,7 +22,15 @@ const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || ''
 const BADGE_HOSTS =
   /shields\.io|badgen\.net|badge\.fury|travis-ci|circleci|codecov|sonarcloud|api\.codacy|repology\.org|flathub\.org\/.*badge|snapcraft\.io\/.*badge|buymeacoffee|liberapay\.com\/.*badge|opencollective\.com\/.*badge|githubusercontent\.com\/.*\/workflows/i
 
+// Only these GitHub API path shapes may be requested. The host is hardcoded
+// and the path is allowlisted, so catalog-derived values (e.g. "owner/repo")
+// can never redirect the request to an arbitrary URL — they are constrained to
+// read-only metadata of a public repo.
+const ALLOWED_PATH =
+  /^\/repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(\/releases(\/latest)?|\/readme)?(\?per_page=\d+)?$/
+
 async function gh(path) {
+  if (!ALLOWED_PATH.test(path)) throw new Error(`refusing disallowed API path: ${path}`)
   const res = await fetch(`https://api.github.com${path}`, {
     headers: {
       Accept: 'application/vnd.github+json',
@@ -49,8 +57,14 @@ function extractImages(...markdowns) {
   return [...urls].filter((u) => !BADGE_HOSTS.test(u)).slice(0, 6)
 }
 
+function assertRepo(repo) {
+  if (typeof repo !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo))
+    throw new Error(`invalid source.github (expected "owner/repo"): ${repo}`)
+  return repo
+}
+
 async function resolveGithub(source) {
-  const repo = source.github
+  const repo = assertRepo(source.github)
   const repoData = await gh(`/repos/${repo}`)
 
   let release
