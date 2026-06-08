@@ -40,6 +40,8 @@ const api: ShellApi = {
     return () => ipcRenderer.removeListener('shell:updateStatus', listener)
   },
   installUpdate: () => ipcRenderer.invoke('shell:update:install'),
+  checkForUpdates: () => ipcRenderer.invoke('shell:update:check'),
+  appVersion: () => ipcRenderer.invoke('shell:appVersion'),
 }
 
 contextBridge.exposeInMainWorld('shellApi', api)

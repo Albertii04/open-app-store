@@ -105,6 +105,10 @@ export interface ShellApi {
   onUpdateStatus(cb: (s: UpdateStatus) => void): () => void
   /** Quit and install a downloaded update. */
   installUpdate(): Promise<void>
+  /** Check GitHub Releases for a newer version on demand. */
+  checkForUpdates(): Promise<void>
+  /** This build's version string (e.g. "0.2.5"). */
+  appVersion(): Promise<string>
 }
 
 declare global {
