@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useDeckSync } from './composables/useDeckSync'
 import { useSliderState } from './composables/useSliderState'
-import type { Presentation } from './types'
+import type { Presentation, PresenterControl } from './types'
 
 const props = defineProps<{ presentation: Presentation }>()
 const slides = computed(() => props.presentation.slides)
@@ -63,6 +63,37 @@ function go(n: number) {
 function advance() { go(idx.value + 1) }
 function back() { go(idx.value - 1) }
 
+// The current slide's stepper control (if any). Its `variant` is the sub-step;
+// changing it syncs to the audience deck via useSliderState.
+type VariantCtrl = Extract<PresenterControl, { kind: 'variants' }>
+function curVariantCtrl(): VariantCtrl | undefined {
+  return current.value?.controls?.find(
+    (c): c is VariantCtrl => c.kind === 'variants' && c.options.length > 1,
+  )
+}
+// Forward respecting sub-steps: advance a step if the slide has one left,
+// otherwise move to the next slide (the deck resets it to its first step).
+function stepForward() {
+  const ctrl = curVariantCtrl()
+  if (ctrl) {
+    const st = stateFor(ctrl.stateKey)
+    if (st.variant.value < ctrl.options.length - 1) { st.variant.value++; return }
+  }
+  advance()
+}
+// Backward respecting sub-steps: step back if possible, else previous slide
+// (the deck arrives at its last step).
+function stepBack() {
+  const ctrl = curVariantCtrl()
+  if (ctrl) {
+    const st = stateFor(ctrl.stateKey)
+    if (st.variant.value > 0) { st.variant.value--; return }
+  }
+  back()
+}
+// Straight to the next slide, ignoring any remaining sub-steps.
+function nextSlideSkip() { advance() }
+
 function onKey(e: KeyboardEvent) {
   switch (e.key) {
     case 't': case 'T':
@@ -71,13 +102,16 @@ function onKey(e: KeyboardEvent) {
       resetTimer(); return
   }
   // Slide navigation by keyboard works ONLY while the clicker is enabled.
-  // Top button (PageUp / ↑) = next; bottom button (PageDown / ↓) = previous.
+  // Clicker layout: PageUp (top) = forward through steps, PageDown (bottom) =
+  // backward through steps, Enter = jump to next slide skipping steps.
   if (!clickerOn.value) return
   switch (e.key) {
-    case 'PageUp': case 'ArrowUp': case 'ArrowRight': case ' ':
-      e.preventDefault(); advance(); break
+    case 'PageUp': case 'ArrowUp': case 'ArrowRight':
+      e.preventDefault(); stepForward(); break
     case 'PageDown': case 'ArrowDown': case 'ArrowLeft':
-      e.preventDefault(); back(); break
+      e.preventDefault(); stepBack(); break
+    case 'Enter': case ' ':
+      e.preventDefault(); nextSlideSkip(); break
   }
 }
 
