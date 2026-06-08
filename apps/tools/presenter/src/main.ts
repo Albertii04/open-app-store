@@ -1,6 +1,6 @@
 import { createApp, type Component } from 'vue'
 import './engine/engine.css'
-import { AudienceDeck, PresenterConsole } from './engine'
+import { AudienceDeck, PresenterConsole, ExportDeck } from './engine'
 import { getPresentation } from './presentations'
 import type { Presentation } from './engine/types'
 import Home from './Home.vue'
@@ -42,6 +42,15 @@ function boot(): void {
     document.title = 'Editor'
     createApp(CodeEditor, { presId: editId }).mount('#app')
     return
+  }
+  const exportId = params.get('export')
+  if (exportId) {
+    const p = getPresentation(exportId)
+    if (p) {
+      document.title = `${p.meta.name} — export`
+      createApp(ExportDeck, { presentation: p }).mount('#app')
+      return
+    }
   }
   const presId = params.get('pres')
   if (presId) {
