@@ -343,6 +343,7 @@ Abre la URL que imprime Vite. Flechas ← / → cambian de slide; F = pantalla c
  * path, or null if the user cancelled.
  */
 export async function exportPresentationPdf(presId: string): Promise<string | null> {
+  if (!presId.startsWith(USER_PREFIX)) throw new Error('invalid presentation')
   const presFolder = join(presentationsDir(), presId)
   let name = presId
   try {
