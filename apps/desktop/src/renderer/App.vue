@@ -42,6 +42,30 @@ const selected = ref<StoreApp | null>(null)
 const progress = ref<Record<string, InstallProgress>>({})
 const favs = ref<Set<string>>(new Set())
 const update = ref<UpdateStatus | null>(null)
+const appVersion = ref('')
+
+const updateBadge = computed(() => {
+  switch (update.value?.phase) {
+    case 'checking': return 'Buscando…'
+    case 'available': return 'Disponible'
+    case 'downloading': return (update.value.pct ?? 0) + '%'
+    case 'ready': return 'Reiniciar'
+    case 'none': return 'Al día'
+    case 'error': return 'Error'
+    default: return ''
+  }
+})
+const updateTone = computed(() => {
+  switch (update.value?.phase) {
+    case 'available':
+    case 'ready': return 'text-blue-500'
+    case 'error': return 'text-amber-500'
+    default: return 'text-neutral-400'
+  }
+})
+const updateLabel = computed(() =>
+  update.value?.phase === 'ready' ? 'Reiniciar para instalar' : 'Buscar actualizaciones',
+)
 
 const FAV_KEY = 'storefront:favs'
 const fallbackIcon =
@@ -183,11 +207,19 @@ function goHome(): void {
 function installUpdate(): void {
   void window.shellApi.installUpdate()
 }
+function checkUpdate(): void {
+  if (update.value?.phase === 'ready') {
+    installUpdate()
+    return
+  }
+  void window.shellApi.checkForUpdates()
+}
 
 onMounted(() => {
   loadFavs()
   void refresh()
   void refreshStore()
+  void window.shellApi.appVersion().then((v) => (appVersion.value = v))
   window.shellApi.onToolsChanged(() => void refresh())
   window.shellApi.onTabs((s) => {
     tabs.value = s
@@ -334,6 +366,20 @@ onMounted(() => {
           >
             <Tag class="size-4" /> {{ c }}
           </button>
+
+          <!-- version + check-for-update -->
+          <button
+            class="nav mt-auto justify-between"
+            :title="updateLabel"
+            :disabled="update?.phase === 'checking'"
+            @click="checkUpdate"
+          >
+            <span class="flex items-center gap-2.5 text-neutral-400">
+              <RefreshCw class="size-4" :class="{ 'animate-spin': update?.phase === 'checking' || update?.phase === 'downloading' }" />
+              v{{ appVersion || '—' }}
+            </span>
+            <span class="text-[11px] font-medium" :class="updateTone">{{ updateBadge }}</span>
+          </button>
         </aside>
 
         <!-- content -->
@@ -351,17 +397,6 @@ onMounted(() => {
                 class="w-full bg-transparent text-[13px] outline-none placeholder:text-neutral-400"
               />
             </div>
-            <div class="flex-1" />
-            <span v-if="platform" class="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-500 dark:bg-neutral-800">
-              {{ platform }}
-            </span>
-            <button
-              class="grid size-9 place-items-center rounded-xl text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
-              title="Refresh"
-              @click="refreshStore"
-            >
-              <RefreshCw class="size-4" />
-            </button>
           </div>
 
           <!-- grid -->

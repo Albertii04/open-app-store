@@ -12,7 +12,7 @@ import {
   uninstallNative,
 } from './installer.js'
 import { getCatalog } from './catalog.js'
-import { initAutoUpdater, quitAndInstallUpdate } from './updater.js'
+import { initAutoUpdater, quitAndInstallUpdate, checkForUpdatesNow } from './updater.js'
 import type { ToolManifest } from '@openappstore/sdk'
 
 const manager = new ToolManager()
@@ -97,6 +97,8 @@ function installShellIpc(): void {
 
   // ---- app auto-update ----
   ipcMain.handle('shell:update:install', () => quitAndInstallUpdate())
+  ipcMain.handle('shell:update:check', () => checkForUpdatesNow())
+  ipcMain.handle('shell:appVersion', () => app.getVersion())
 }
 
 app.on('second-instance', () => {

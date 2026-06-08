@@ -33,10 +33,11 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  # Signed (Developer ID) → auto-update validates the signature, so updates
-  # apply. Notarization is OFF until APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD are
-  # set as secrets; flip to true then to also clear Gatekeeper on first install.
-  notarize: false
+  # Signed (Developer ID) + notarized → auto-update validates the signature and
+  # Gatekeeper clears the app on first install. notarytool reads APPLE_ID +
+  # APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID from the release workflow env.
+  notarize:
+    teamId: 7ULADLL579
 win:
   target:
     - nsis
