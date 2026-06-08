@@ -31,6 +31,7 @@ interface Authoring {
   onChat(cb: (e: ChatEvent) => void): () => void
   saveAttachment(presId: string, name: string, dataBase64: string): Promise<string>
   exportPresentation(presId: string): Promise<string | null>
+  exportPresentationPdf(presId: string): Promise<string | null>
 }
 
 interface Attachment {
@@ -146,7 +147,18 @@ function onAspectChange(): void {
 }
 
 const sharing = ref(false)
-async function share(): Promise<void> {
+const shareMenuOpen = ref(false)
+function toggleShareMenu(): void {
+  if (!sharing.value) shareMenuOpen.value = !shareMenuOpen.value
+}
+function closeShareMenu(): void {
+  shareMenuOpen.value = false
+}
+function onShareKey(e: KeyboardEvent): void {
+  if (e.key === 'Escape') closeShareMenu()
+}
+async function exportZip(): Promise<void> {
+  closeShareMenu()
   if (sharing.value || !authoring) return
   sharing.value = true
   try {
@@ -154,6 +166,20 @@ async function share(): Promise<void> {
     if (path) pushMsg({ role: 'tool', text: 'Exportado: ' + path })
   } catch (e) {
     pushMsg({ role: 'error', text: 'No se pudo exportar: ' + String(e) })
+  } finally {
+    sharing.value = false
+    scroll()
+  }
+}
+async function exportPdf(): Promise<void> {
+  closeShareMenu()
+  if (sharing.value || !authoring) return
+  sharing.value = true
+  try {
+    const path = await authoring.exportPresentationPdf(props.presId)
+    if (path) pushMsg({ role: 'tool', text: 'Exportado PDF: ' + path })
+  } catch (e) {
+    pushMsg({ role: 'error', text: 'No se pudo exportar el PDF: ' + String(e) })
   } finally {
     sharing.value = false
     scroll()
@@ -185,6 +211,7 @@ function scroll(): void {
 
 onMounted(async () => {
   window.addEventListener('message', onDeckMsg)
+  window.addEventListener('keydown', onShareKey)
   document.addEventListener('mousedown', onDocClick)
 
   // Load persisted conversations (or start one).
@@ -248,6 +275,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('message', onDeckMsg)
+  window.removeEventListener('keydown', onShareKey)
   document.removeEventListener('mousedown', onDocClick)
 })
 
@@ -532,20 +560,29 @@ function goHome(): void {
             <option value="16:9">16:9 (panorámico)</option>
             <option value="4:3">4:3 (estándar)</option>
           </select>
-          <button
-            class="ce-share"
-            title="Exportar como proyecto (.zip)"
-            :disabled="sharing"
-            @click="share"
-          >
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="18" cy="5" r="3" />
-              <circle cx="6" cy="12" r="3" />
-              <circle cx="18" cy="19" r="3" />
-              <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
-            </svg>
-            <span>{{ sharing ? 'Exportando…' : 'Compartir' }}</span>
-          </button>
+          <div class="ce-share-wrap">
+            <button
+              class="ce-share"
+              title="Compartir presentación"
+              :disabled="sharing"
+              @click="toggleShareMenu"
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+              </svg>
+              <span>{{ sharing ? 'Exportando…' : 'Compartir' }}</span>
+            </button>
+            <template v-if="shareMenuOpen">
+              <div class="ce-share-backdrop" @click="closeShareMenu"></div>
+              <div class="ce-share-menu" role="menu">
+                <button class="ce-share-item" @click="exportZip">Exportar proyecto (.zip)</button>
+                <button class="ce-share-item" @click="exportPdf">Exportar PDF</button>
+              </div>
+            </template>
+          </div>
         </div>
       </div>
       <div class="ce-frame-wrap">
@@ -1011,6 +1048,39 @@ function goHome(): void {
 }
 .ce-share:disabled {
   opacity: 0.5;
+}
+.ce-share-wrap {
+  position: relative;
+}
+.ce-share-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.ce-share-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 41;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background: var(--slate-900);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+}
+.ce-share-item {
+  text-align: left;
+  padding: 0.42rem 0.6rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  color: var(--fg-secondary);
+}
+.ce-share-item:hover {
+  background: var(--slate-800, rgba(255, 255, 255, 0.06));
+  color: var(--fg-primary);
 }
 .ce-nav {
   width: 28px;
