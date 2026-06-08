@@ -16,10 +16,12 @@
   "dependencies": {
     "@toolbox/sdk": "workspace:*",
     "@toolbox/tool-host": "workspace:*",
+    "adm-zip": "^0.5.17",
     "lucide-vue-next": "^1.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^20.11.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.9.1",
