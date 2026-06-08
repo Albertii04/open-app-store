@@ -71,11 +71,12 @@ function onKey(e: KeyboardEvent) {
       resetTimer(); return
   }
   // Slide navigation by keyboard works ONLY while the clicker is enabled.
+  // Top button (PageUp / ↑) = next; bottom button (PageDown / ↓) = previous.
   if (!clickerOn.value) return
   switch (e.key) {
-    case 'PageDown': case 'ArrowRight': case 'ArrowDown': case ' ':
+    case 'PageUp': case 'ArrowUp': case 'ArrowRight': case ' ':
       e.preventDefault(); advance(); break
-    case 'PageUp': case 'ArrowLeft': case 'ArrowUp':
+    case 'PageDown': case 'ArrowDown': case 'ArrowLeft':
       e.preventDefault(); back(); break
   }
 }
