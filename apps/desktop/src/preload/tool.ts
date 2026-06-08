@@ -49,6 +49,7 @@ const api: ToolboxApi = {
     saveAttachment: (presId, name, dataBase64) =>
       ipcRenderer.invoke(IPC.authoringAttach, presId, name, dataBase64),
     exportPresentation: (presId) => ipcRenderer.invoke(IPC.authoringExport, presId),
+    exportPresentationPdf: (presId) => ipcRenderer.invoke(IPC.authoringExportPdf, presId),
     importPresentation: () => ipcRenderer.invoke(IPC.authoringImport),
     thumbnail: (presId, force) => ipcRenderer.invoke(IPC.authoringThumbnail, presId, force),
     sendChat: (presId, message, allowEdits, resumeSessionId) =>
