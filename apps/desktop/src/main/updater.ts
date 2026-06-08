@@ -15,8 +15,9 @@ import type { UpdateStatus } from '../shared/types.js'
 const { autoUpdater } = electronUpdater
 
 export function initAutoUpdater(getWindow: () => BrowserWindow | null): void {
-  if (!app.isPackaged) return
   const send = (s: UpdateStatus): void => getWindow()?.webContents.send('shell:updateStatus', s)
+  sendStatus = send
+  if (!app.isPackaged) return
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
@@ -30,6 +31,18 @@ export function initAutoUpdater(getWindow: () => BrowserWindow | null): void {
   autoUpdater.on('update-downloaded', (i) => send({ phase: 'ready', version: i.version }))
   autoUpdater.on('error', (e) => send({ phase: 'error', message: String((e as Error)?.message || e) }))
 
+  checkForUpdatesNow()
+}
+
+let sendStatus: ((s: UpdateStatus) => void) | null = null
+
+/** Trigger an update check on demand (the sidebar's refresh-arrows button). */
+export function checkForUpdatesNow(): void {
+  if (!app.isPackaged) {
+    // Dev build: no real feed. Report "up to date" so the UI gives feedback.
+    sendStatus?.({ phase: 'none' })
+    return
+  }
   autoUpdater.checkForUpdates().catch(() => {
     /* offline / no release yet — ignore */
   })
