@@ -3,37 +3,44 @@
   "tasks": [
     {
       "id": 1,
-      "subject": "Task 1: SDK — IPC channel + API type",
-      "status": "pending",
+      "subject": "Task 1: SDK \u2014 IPC channel + API type",
+      "status": "completed",
       "description": "**Goal:** Declare authoringExportPdf channel and exportPresentationPdf on ToolboxApi, rebuild SDK.\n\n**Files:** packages/sdk/src/ipc.ts:28, packages/sdk/src/api.ts:99\n\n```json:metadata\n{\"files\": [\"packages/sdk/src/ipc.ts\", \"packages/sdk/src/api.ts\"], \"verifyCommand\": \"pnpm --filter @openappstore/sdk build && grep -q 'authoring.exportPdf' packages/sdk/dist/ipc.js && echo OK\", \"acceptanceCriteria\": [\"IPC.authoringExportPdf added\", \"API type added\", \"SDK rebuilt\"]}\n```"
     },
     {
       "id": 2,
-      "subject": "Task 2: Main — exportPresentationPdf in authoring.ts",
-      "status": "pending",
-      "blockedBy": [1],
+      "subject": "Task 2: Main \u2014 exportPresentationPdf in authoring.ts",
+      "status": "completed",
+      "blockedBy": [
+        1
+      ],
       "description": "**Goal:** Render every slide to one-page-per-slide PDF via offscreen window + printToPDF.\n\n**Files:** apps/desktop/src/main/authoring.ts (after line 336)\n\n```json:metadata\n{\"files\": [\"apps/desktop/src/main/authoring.ts\"], \"verifyCommand\": \"pnpm --filter @openappstore/desktop typecheck\", \"acceptanceCriteria\": [\"function exported\", \"save dialog + cancel\", \"offscreen render + printToPDF\"]}\n```"
     },
     {
       "id": 3,
-      "subject": "Task 3: Wire IPC — broker handler + preload method",
-      "status": "pending",
-      "blockedBy": [2],
+      "subject": "Task 3: Wire IPC \u2014 broker handler + preload method",
+      "status": "completed",
+      "blockedBy": [
+        2
+      ],
       "description": "**Goal:** Expose exportPresentationPdf through broker (authoring auth) + preload bridge.\n\n**Files:** apps/desktop/src/main/broker.ts:15,208, apps/desktop/src/preload/tool.ts:52\n\n```json:metadata\n{\"files\": [\"apps/desktop/src/main/broker.ts\", \"apps/desktop/src/preload/tool.ts\"], \"verifyCommand\": \"pnpm --filter @openappstore/desktop typecheck\", \"acceptanceCriteria\": [\"broker handler\", \"preload method\"]}\n```"
     },
     {
       "id": 4,
-      "subject": "Task 4: Renderer — ExportDeck.vue + ?export route",
-      "status": "pending",
+      "subject": "Task 4: Renderer \u2014 ExportDeck.vue + ?export route",
+      "status": "completed",
       "description": "**Goal:** Stacked all-slides print view (1280x720 pages, static state) + ?export route.\n\n**Files:** apps/tools/presenter/src/engine/ExportDeck.vue (create), apps/tools/presenter/src/engine/index.ts, apps/tools/presenter/src/main.ts:3,46\n\n```json:metadata\n{\"files\": [\"apps/tools/presenter/src/engine/ExportDeck.vue\", \"apps/tools/presenter/src/engine/index.ts\", \"apps/tools/presenter/src/main.ts\"], \"verifyCommand\": \"pnpm --filter @openappstore/presenter typecheck\", \"acceptanceCriteria\": [\"ExportDeck stacked pages\", \"engine export\", \"?export route\"]}\n```"
     },
     {
       "id": 5,
-      "subject": "Task 5: UI — Compartir dropdown + exportPdf()",
-      "status": "pending",
-      "blockedBy": [3, 4],
+      "subject": "Task 5: UI \u2014 Compartir dropdown + exportPdf()",
+      "status": "completed",
+      "blockedBy": [
+        3,
+        4
+      ],
       "description": "**Goal:** Compartir button opens menu (zip + PDF); wire exportPdf to preload.\n\n**Files:** apps/tools/presenter/src/CodeEditor.vue (interface ~33, script ~148, markup 535-548, styles after 1014)\n\n```json:metadata\n{\"files\": [\"apps/tools/presenter/src/CodeEditor.vue\"], \"verifyCommand\": \"pnpm --filter @openappstore/presenter typecheck\", \"acceptanceCriteria\": [\"dropdown menu\", \"pdf action wired\", \"close behaviors\", \"manual PDF verification\"]}\n```"
     }
   ],
-  "lastUpdated": "2026-06-08T00:00:00Z"
+  "lastUpdated": "2026-06-08T16:30:00Z"
 }

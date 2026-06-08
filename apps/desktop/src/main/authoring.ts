@@ -55,6 +55,10 @@ function templateDir(): string {
 
 const USER_PREFIX = 'u-'
 
+// PDF export page size in CSS px: 16:9 at 1280×720 (= 13.333in × 7.5in @96dpi).
+const PDF_PAGE_W = 1280
+const PDF_PAGE_H = 720
+
 // ---- durable deck backup ----
 // User decks live in the (gitignored) source tree so Vite can compile them, so
 // they don't survive a repo move/clean or ship in CI builds. Mirror each to a
@@ -335,12 +339,21 @@ Abre la URL que imprime Vite. Flechas ← / → cambian de slide; F = pantalla c
   return dest
 }
 
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
 /**
  * Export a presentation to a PDF — one slide per page, rendered exactly as the
- * live deck (final/static state, no animation). Opens an offscreen window on the
- * Presenter's `?export=<id>` route and prints it. Dev-only: getPreviewUrl()
- * needs the dev server (like the zip export and thumbnails). Returns the saved
- * path, or null if the user cancelled.
+ * live deck (final/static state). Opens an offscreen window on the Presenter's
+ * `?export=<id>` route (a vertical stack of 1280×720 pages), screenshots each
+ * page via the GPU compositor, then prints those images to the PDF.
+ *
+ * Why screenshot instead of printing the page directly: Chromium's print path
+ * doesn't honour `mask-composite` or `background-clip: text`, so animated glow
+ * borders fill solid and gradient-clipped titles leave ghost boxes. capturePage
+ * uses the on-screen compositor, so the PDF matches the deck pixel-for-pixel.
+ *
+ * Dev-only: getPreviewUrl() needs the dev server (like the zip export and
+ * thumbnails). Returns the saved path, or null if the user cancelled.
  */
 export async function exportPresentationPdf(presId: string): Promise<string | null> {
   if (!presId.startsWith(USER_PREFIX)) throw new Error('invalid presentation')
@@ -365,18 +378,61 @@ export async function exportPresentationPdf(presId: string): Promise<string | nu
   const base = await getPreviewUrl()
   const win = new BrowserWindow({
     show: false,
-    width: 1280,
-    height: 720,
+    width: PDF_PAGE_W,
+    height: PDF_PAGE_H,
     paintWhenInitiallyHidden: true,
-    webPreferences: { offscreen: false, backgroundThrottling: false },
+    // Isolated, in-memory session: ExportDeck pre-sets slider state in
+    // localStorage, and this keeps it from leaking into the live deck.
+    webPreferences: { offscreen: false, backgroundThrottling: false, partition: 'export-pdf' },
   })
   try {
     await win.loadURL(`${base}?export=${presId}`)
-    // Let webfonts load and slides settle before printing (mirrors renderThumbnail).
-    await new Promise((r) => setTimeout(r, 1500))
+    // Wait for webfonts (a fallback font reflows/overlaps), then a settle so slide
+    // intro animations reach their final frame before we screenshot.
+    await win.webContents.executeJavaScript('document.fonts.ready.then(() => true)')
+    await sleep(1500)
+
+    const count = (await win.webContents.executeJavaScript(
+      'document.querySelectorAll(".export-page").length',
+    )) as number
+    if (!count) throw new Error('la presentación no tiene diapositivas')
+
+    // Screenshot each 1280×720 page through the compositor.
+    const shots: string[] = []
+    for (let i = 0; i < count; i++) {
+      await win.webContents.executeJavaScript(`window.scrollTo(0, ${i} * ${PDF_PAGE_H})`)
+      await sleep(140)
+      const img = await win.webContents.capturePage({
+        x: 0,
+        y: 0,
+        width: PDF_PAGE_W,
+        height: PDF_PAGE_H,
+      })
+      shots.push(img.toPNG().toString('base64'))
+    }
+
+    // Replace the DOM with the captured images (one per print page) and print
+    // those — plain raster, immune to the print-path CSS gaps noted above.
+    await win.webContents.executeJavaScript(`(() => {
+      const s = document.createElement('style')
+      s.textContent = '@page{size:13.333in 7.5in;margin:0} html,body{margin:0;padding:0;height:auto;width:auto;overflow:visible;background:#fff} #pdfwrap img{display:block;width:${PDF_PAGE_W}px;height:${PDF_PAGE_H}px;break-after:page;page-break-after:always} #pdfwrap img:last-child{break-after:auto;page-break-after:auto}'
+      document.head.appendChild(s)
+      document.body.innerHTML = '<div id="pdfwrap"></div>'
+      return true
+    })()`)
+    for (const b64 of shots) {
+      await win.webContents.executeJavaScript(
+        `(() => { const img = new Image(); img.src = 'data:image/png;base64,' + ${JSON.stringify(b64)}; document.getElementById('pdfwrap').appendChild(img); return true })()`,
+      )
+    }
+    await win.webContents.executeJavaScript(
+      'Promise.all(Array.from(document.images).map((i) => i.decode().catch(() => {}))).then(() => true)',
+    )
+    await sleep(250)
+
     const pdf = await win.webContents.printToPDF({
       printBackground: true,
-      preferCSSPageSize: true, // honour ExportDeck's @page { size: 13.333in 7.5in }
+      preferCSSPageSize: true, // honour the @page { size: 13.333in 7.5in } above
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
     })
     await rm(dest, { force: true })

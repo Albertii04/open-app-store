@@ -147,18 +147,17 @@ function onAspectChange(): void {
 }
 
 const sharing = ref(false)
-const shareMenuOpen = ref(false)
-function toggleShareMenu(): void {
-  if (!sharing.value) shareMenuOpen.value = !shareMenuOpen.value
+// "Compartir" opens a centered modal (fixed + high z-index → renders above the
+// preview iframe) to choose zip vs PDF.
+const shareOpen = ref(false)
+function openShare(): void {
+  if (!sharing.value) shareOpen.value = true
 }
-function closeShareMenu(): void {
-  shareMenuOpen.value = false
-}
-function onShareKey(e: KeyboardEvent): void {
-  if (e.key === 'Escape') closeShareMenu()
+function closeShare(): void {
+  shareOpen.value = false
 }
 async function exportZip(): Promise<void> {
-  closeShareMenu()
+  closeShare()
   if (sharing.value || !authoring) return
   sharing.value = true
   try {
@@ -172,7 +171,7 @@ async function exportZip(): Promise<void> {
   }
 }
 async function exportPdf(): Promise<void> {
-  closeShareMenu()
+  closeShare()
   if (sharing.value || !authoring) return
   sharing.value = true
   try {
@@ -211,7 +210,6 @@ function scroll(): void {
 
 onMounted(async () => {
   window.addEventListener('message', onDeckMsg)
-  window.addEventListener('keydown', onShareKey)
   document.addEventListener('mousedown', onDocClick)
 
   // Load persisted conversations (or start one).
@@ -275,7 +273,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('message', onDeckMsg)
-  window.removeEventListener('keydown', onShareKey)
   document.removeEventListener('mousedown', onDocClick)
 })
 
@@ -560,29 +557,20 @@ function goHome(): void {
             <option value="16:9">16:9 (panorámico)</option>
             <option value="4:3">4:3 (estándar)</option>
           </select>
-          <div class="ce-share-wrap">
-            <button
-              class="ce-share"
-              title="Compartir presentación"
-              :disabled="sharing"
-              @click="toggleShareMenu"
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="18" cy="5" r="3" />
-                <circle cx="6" cy="12" r="3" />
-                <circle cx="18" cy="19" r="3" />
-                <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
-              </svg>
-              <span>{{ sharing ? 'Exportando…' : 'Compartir' }}</span>
-            </button>
-            <template v-if="shareMenuOpen">
-              <div class="ce-share-backdrop" @click="closeShareMenu"></div>
-              <div class="ce-share-menu" role="menu">
-                <button class="ce-share-item" @click="exportZip">Exportar proyecto (.zip)</button>
-                <button class="ce-share-item" @click="exportPdf">Exportar PDF</button>
-              </div>
-            </template>
-          </div>
+          <button
+            class="ce-share"
+            title="Compartir presentación"
+            :disabled="sharing"
+            @click="openShare"
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3" />
+              <circle cx="6" cy="12" r="3" />
+              <circle cx="18" cy="19" r="3" />
+              <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+            </svg>
+            <span>{{ sharing ? 'Exportando…' : 'Compartir' }}</span>
+          </button>
         </div>
       </div>
       <div class="ce-frame-wrap">
@@ -610,6 +598,23 @@ function goHome(): void {
         </transition>
       </div>
     </main>
+
+    <!-- Share picker: a centered modal (fixed + high z-index → above the
+         preview iframe) with the two export choices. -->
+    <div v-if="shareOpen" class="ce-share-modal" @click.self="closeShare">
+      <div class="ce-share-card" role="dialog" aria-label="Compartir presentación">
+        <h3 class="ce-share-title">Compartir presentación</h3>
+        <button class="ce-share-opt" @click="exportZip">
+          <strong>Exportar proyecto (.zip)</strong>
+          <span>Proyecto Vite editable con el código de la presentación.</span>
+        </button>
+        <button class="ce-share-opt" @click="exportPdf">
+          <strong>Exportar PDF</strong>
+          <span>Una página por diapositiva, listo para compartir o imprimir.</span>
+        </button>
+        <button class="ce-share-cancel" @click="closeShare">Cancelar</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1049,37 +1054,64 @@ function goHome(): void {
 .ce-share:disabled {
   opacity: 0.5;
 }
-.ce-share-wrap {
-  position: relative;
-}
-.ce-share-backdrop {
+.ce-share-modal {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(8, 11, 18, 0.6);
+  backdrop-filter: blur(2px);
 }
-.ce-share-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 41;
-  min-width: 210px;
+.ce-share-card {
   display: flex;
   flex-direction: column;
-  padding: 0.25rem;
+  gap: 0.5rem;
+  width: min(28rem, 100%);
+  padding: 1.1rem;
   background: var(--slate-900);
   border: 1px solid var(--rule);
-  border-radius: 4px;
-  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  border-radius: 10px;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
 }
-.ce-share-item {
+.ce-share-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+.ce-share-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
   text-align: left;
-  padding: 0.42rem 0.6rem;
-  border-radius: 3px;
-  font-size: 0.72rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
   color: var(--fg-secondary);
 }
-.ce-share-item:hover {
-  background: var(--slate-800, rgba(255, 255, 255, 0.06));
+.ce-share-opt strong {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+.ce-share-opt span {
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+}
+.ce-share-opt:hover {
+  border-color: var(--brand-500);
+  background: var(--slate-800, rgba(255, 255, 255, 0.05));
+}
+.ce-share-cancel {
+  align-self: flex-end;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.74rem;
+  color: var(--fg-muted);
+}
+.ce-share-cancel:hover {
   color: var(--fg-primary);
 }
 .ce-nav {
