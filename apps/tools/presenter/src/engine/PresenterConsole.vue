@@ -37,6 +37,10 @@ function toggleClicker() {
   clickerOn.value = !clickerOn.value
 }
 
+// Key detector — shows the last key the app received (key · code · keyCode), so a
+// clicker's actual emitted keys can be diagnosed live.
+const lastKey = ref('—')
+
 // Presenter controls are declared per-slide and driven generically, so the
 // console carries no presentation-specific logic. Pre-create a synced state per
 // referenced key (composables must run during setup).
@@ -95,6 +99,8 @@ function stepBack() {
 function nextSlideSkip() { advance() }
 
 function onKey(e: KeyboardEvent) {
+  // Record every key for the detector (before any early-return below).
+  lastKey.value = `${e.key} · ${e.code} · ${e.keyCode}`
   switch (e.key) {
     case 't': case 'T':
       toggleTimer(); return
@@ -187,6 +193,10 @@ function openAudience() {
         <span class="wm-primary">{{ wordmark?.primary ?? 'PRESENTER' }}</span><span class="wm-slash">/</span><span class="wm-suffix">PRESENTER</span>
       </div>
       <div class="p-status">
+        <div class="p-keydet" title="Última tecla recibida (key · code · keyCode)">
+          <span class="p-keydet-lbl">Tecla</span>
+          <span class="p-keydet-val">{{ lastKey }}</span>
+        </div>
         <button
           @click="toggleClicker"
           class="p-btn p-clicker"
@@ -474,6 +484,30 @@ function openAudience() {
   color: #86efac;
 }
 .p-clicker.on:hover { background: rgba(34, 197, 94, 0.24); color: #bbf7d0; }
+.p-keydet {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  background: rgba(15, 23, 42, 0.5);
+}
+.p-keydet-lbl {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--brand-300);
+}
+.p-keydet-val {
+  font-family: var(--font);
+  font-size: 0.72rem;
+  color: var(--fg-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 11rem;
+  white-space: nowrap;
+}
 
 .slider-block {
   border: 1px solid var(--brand-400);
