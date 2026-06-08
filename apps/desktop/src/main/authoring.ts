@@ -335,6 +335,57 @@ Abre la URL que imprime Vite. Flechas ← / → cambian de slide; F = pantalla c
   return dest
 }
 
+/**
+ * Export a presentation to a PDF — one slide per page, rendered exactly as the
+ * live deck (final/static state, no animation). Opens an offscreen window on the
+ * Presenter's `?export=<id>` route and prints it. Dev-only: getPreviewUrl()
+ * needs the dev server (like the zip export and thumbnails). Returns the saved
+ * path, or null if the user cancelled.
+ */
+export async function exportPresentationPdf(presId: string): Promise<string | null> {
+  const presFolder = join(presentationsDir(), presId)
+  let name = presId
+  try {
+    name = JSON.parse(readFileSync(join(presFolder, 'presentation.json'), 'utf8')).name || presId
+  } catch {
+    /* fall back to the id */
+  }
+  const slug = slugify(name)
+
+  const res = await dialog.showSaveDialog({
+    title: 'Exportar presentación a PDF',
+    defaultPath: `${slug}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  })
+  if (res.canceled || !res.filePath) return null
+  const dest = res.filePath
+
+  // Throws if packaged (no dev server) — surfaced to the user as an error toast.
+  const base = await getPreviewUrl()
+  const win = new BrowserWindow({
+    show: false,
+    width: 1280,
+    height: 720,
+    paintWhenInitiallyHidden: true,
+    webPreferences: { offscreen: false, backgroundThrottling: false },
+  })
+  try {
+    await win.loadURL(`${base}?export=${presId}`)
+    // Let webfonts load and slides settle before printing (mirrors renderThumbnail).
+    await new Promise((r) => setTimeout(r, 1500))
+    const pdf = await win.webContents.printToPDF({
+      printBackground: true,
+      preferCSSPageSize: true, // honour ExportDeck's @page { size: 13.333in 7.5in }
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    })
+    await rm(dest, { force: true })
+    writeFileSync(dest, pdf)
+    return dest
+  } finally {
+    win.destroy()
+  }
+}
+
 const IMPORT_SKIP = /(^|\/)(node_modules|\.git|dist|attachments|__MACOSX)(\/|$)/
 
 /**
