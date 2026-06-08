@@ -1,6 +1,6 @@
 import { createApp, type Component } from 'vue'
 import './engine/engine.css'
-import { AudienceDeck, PresenterConsole, ExportDeck } from './engine'
+import { AudienceDeck, PresenterConsole, ExportDeck, SoloDeck } from './engine'
 import { getPresentation } from './presentations'
 import type { Presentation } from './engine/types'
 import Home from './Home.vue'
@@ -49,6 +49,18 @@ function boot(): void {
     if (p) {
       document.title = `${p.meta.name} — export`
       createApp(ExportDeck, { presentation: p }).mount('#app')
+      return
+    }
+  }
+  // ?solo=<id>&n=<i> → a single static slide (used inside the presenter console's
+  // preview iframes, where it fills the iframe viewport at full fidelity).
+  const soloId = params.get('solo')
+  if (soloId) {
+    const p = getPresentation(soloId)
+    const n = Math.max(0, parseInt(params.get('n') ?? '0', 10) || 0)
+    if (p) {
+      document.title = p.meta.name
+      createApp(SoloDeck, { presentation: p, index: n }).mount('#app')
       return
     }
   }
