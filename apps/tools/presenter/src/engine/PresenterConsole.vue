@@ -95,8 +95,6 @@ function stepBack() {
   }
   back()
 }
-// Straight to the next slide, ignoring any remaining sub-steps.
-function nextSlideSkip() { advance() }
 
 function onKey(e: KeyboardEvent) {
   // Record every key for the detector (before any early-return below).
@@ -109,15 +107,13 @@ function onKey(e: KeyboardEvent) {
   }
   // Slide navigation by keyboard works ONLY while the clicker is enabled.
   // Clicker layout: PageUp (top) = forward through steps, PageDown (bottom) =
-  // backward through steps, Enter = jump to next slide skipping steps.
+  // backward through steps. Every step is walked — nothing is skipped.
   if (!clickerOn.value) return
   switch (e.key) {
     case 'PageUp': case 'ArrowUp': case 'ArrowRight':
       e.preventDefault(); stepForward(); break
     case 'PageDown': case 'ArrowDown': case 'ArrowLeft':
       e.preventDefault(); stepBack(); break
-    case 'Enter': case ' ':
-      e.preventDefault(); nextSlideSkip(); break
   }
 }
 
