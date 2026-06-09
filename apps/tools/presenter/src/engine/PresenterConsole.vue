@@ -178,7 +178,8 @@ onUnmounted(() => {
 })
 
 function openAudience() {
-  window.open(`${location.pathname}?pres=${props.presentation.meta.id}`, '_blank')
+  // &clicker → the audience window also responds to the presentation clicker.
+  window.open(`${location.pathname}?pres=${props.presentation.meta.id}&clicker`, '_blank')
 }
 </script>
 

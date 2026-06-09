@@ -15,8 +15,13 @@ function mountDeck(presentation: Presentation): void {
   document.title = presentation.meta.name
   // A presentation may ship its own presenter console (escape hatch).
   const Root: Component = isPresenter ? (presentation.Presenter ?? PresenterConsole) : AudienceDeck
-  // ?nav enables editor-preview navigation (arrow keys + postMessage from the parent).
-  createApp(Root, { presentation, navigable: params.has('nav') }).mount('#app')
+  // ?nav enables editor-preview navigation (arrow keys + postMessage from the
+  // parent); ?clicker lets the live audience window be driven by the clicker.
+  createApp(Root, {
+    presentation,
+    navigable: params.has('nav'),
+    clicker: params.has('clicker'),
+  }).mount('#app')
 }
 
 // Routes:

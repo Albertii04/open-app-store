@@ -4,7 +4,7 @@ import gsap from 'gsap'
 import { useDeckSync } from './composables/useDeckSync'
 import type { Presentation } from './types'
 
-const props = defineProps<{ presentation: Presentation; navigable?: boolean }>()
+const props = defineProps<{ presentation: Presentation; navigable?: boolean; clicker?: boolean }>()
 const slides = computed(() => props.presentation.slides)
 const wordmark = computed(() => props.presentation.theme?.wordmark ?? null)
 const themeVars = computed(() => props.presentation.theme?.vars ?? {})
@@ -109,6 +109,17 @@ function prev() {
 }
 
 function onKey(e: KeyboardEvent) {
+  // Clicker (this window opened as the live audience): PageUp/↑ = forward,
+  // PageDown/↓ = back — step-aware via next()/prev(). So the clicker drives the
+  // deck whether the presenter console OR the audience window has focus.
+  if (props.clicker) {
+    switch (e.key) {
+      case 'PageUp': case 'ArrowUp': case 'ArrowRight':
+        e.preventDefault(); next(); return
+      case 'PageDown': case 'ArrowDown': case 'ArrowLeft':
+        e.preventDefault(); prev(); return
+    }
+  }
   switch (e.key) {
     case 'f':
     case 'F':
