@@ -44,50 +44,63 @@ const isClose = computed(() => displayIdx.value === total.value - 1)
 
 const slideHostEl = ref<HTMLElement | null>(null)
 const slideRef = ref<any>(null)
+// `transitioning` no longer gates navigation (that caused fast nav to be dropped
+// / skip slides). It only flags that an entrance is mid-flight so the NEXT change
+// can play a quick entrance instead of the full one.
 let transitioning = false
+let settleTimer: ReturnType<typeof setTimeout> | null = null
 
 function paddedNum(n: number) {
   return String(n).padStart(2, '0')
 }
 
-async function transitionTo(newIdx: number, dir: 'next' | 'prev') {
-  if (transitioning) return
+// Switch slides INSTANTLY: kill any in-flight animation and swap immediately, so
+// no navigation is ever dropped and slides can't be skipped when paging fast.
+// The outgoing slide is hard-cut (no awaited fade-out); the incoming one gets an
+// entrance — full when paging calmly, quick when interrupting a running one.
+function transitionTo(newIdx: number, dir: 'next' | 'prev') {
   if (newIdx === displayIdx.value) return
-  transitioning = true
   const host = slideHostEl.value
   if (!host) {
     displayIdx.value = newIdx
-    transitioning = false
     return
   }
-  // Long, soft exit
-  await gsap.to(host, {
-    opacity: 0,
-    duration: 0.55,
-    ease: 'power2.inOut',
-  })
+  const interrupting = transitioning
+  gsap.killTweensOf(host)
+  gsap.killTweensOf(host.querySelectorAll('[data-reveal]'))
+  if (settleTimer) {
+    clearTimeout(settleTimer)
+    settleTimer = null
+  }
+  transitioning = true
   displayIdx.value = newIdx
-  await nextTick()
-  if (slideRef.value) {
-    if (dir === 'next' && typeof slideRef.value.resetForward === 'function') slideRef.value.resetForward()
-    if (dir === 'prev' && typeof slideRef.value.resetBackward === 'function') slideRef.value.resetBackward()
-  }
-  // Host appears invisible. No translate on host — all motion lives in reveals.
-  gsap.set(host, { opacity: 0, y: 0 })
-  gsap.to(host, {
-    opacity: 1,
-    duration: 1.2,
-    ease: 'power1.out',
+  nextTick(() => {
+    if (slideRef.value) {
+      if (dir === 'next' && typeof slideRef.value.resetForward === 'function') slideRef.value.resetForward()
+      if (dir === 'prev' && typeof slideRef.value.resetBackward === 'function') slideRef.value.resetBackward()
+    }
+    const h = slideHostEl.value
+    if (!h) {
+      transitioning = false
+      return
+    }
+    gsap.set(h, { opacity: 0, y: 0 })
+    gsap.to(h, { opacity: 1, duration: interrupting ? 0.18 : 0.5, ease: 'power1.out' })
+    const reveals = h.querySelectorAll('[data-reveal]')
+    if (reveals.length) {
+      gsap.fromTo(reveals,
+        { opacity: 0, y: interrupting ? 0 : 30 },
+        {
+          opacity: 1, y: 0,
+          duration: interrupting ? 0.22 : 0.9,
+          stagger: interrupting ? 0 : 0.12,
+          ease: 'expo.out',
+          delay: interrupting ? 0 : 0.25,
+        },
+      )
+    }
+    settleTimer = setTimeout(() => { transitioning = false; settleTimer = null }, interrupting ? 220 : 650)
   })
-  // Reveals start AFTER host has started fading in — feels layered, not abrupt
-  const reveals = host.querySelectorAll('[data-reveal]')
-  if (reveals.length) {
-    gsap.fromTo(reveals,
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 1.0, stagger: 0.14, ease: 'expo.out', delay: 0.4 }
-    )
-  }
-  setTimeout(() => { transitioning = false }, 700)
 }
 
 watch(idx, (newV, oldV) => {
@@ -170,8 +183,11 @@ watch(displayIdx, postState)
 
 onMounted(() => {
   document.addEventListener('keydown', onKey)
+  // Always accept deck-nav postMessages: the presenter console drives this deck
+  // (its "Actual" preview iframe) via next()/prev() so step handling is identical
+  // whether the console or the audience window is in front.
+  window.addEventListener('message', onMessage)
   if (props.navigable) {
-    window.addEventListener('message', onMessage)
     nextTick(postState)
   }
   nextTick(() => {

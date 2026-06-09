@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useDeckSync } from './composables/useDeckSync'
 import { useSliderState } from './composables/useSliderState'
-import type { Presentation, PresenterControl } from './types'
+import type { Presentation } from './types'
 
 const props = defineProps<{ presentation: Presentation }>()
 const slides = computed(() => props.presentation.slides)
@@ -59,42 +59,19 @@ function stateFor(key: string) {
   return st
 }
 
-function go(n: number) {
-  if (n < 0 || n >= total.value) return
-  idx.value = n
-  history.replaceState(null, '', `#${n + 1}`)
+// All navigation is delegated to the live deck (the "Actual" preview iframe) via
+// a deck-nav postMessage, so the console walks EXACTLY the same steps as the deck
+// — its next()/prev() handle declared controls AND slides' internal reveal steps
+// (tryAdvance), and the change syncs to every window. Keeps console ⇆ audience
+// behaviour identical.
+const frameEl = ref<HTMLIFrameElement | null>(null)
+function postNav(dir: 'next' | 'prev') {
+  frameEl.value?.contentWindow?.postMessage({ type: 'deck-nav', dir }, '*')
 }
-function advance() { go(idx.value + 1) }
-function back() { go(idx.value - 1) }
-
-// The current slide's stepper control (if any). Its `variant` is the sub-step;
-// changing it syncs to the audience deck via useSliderState.
-type VariantCtrl = Extract<PresenterControl, { kind: 'variants' }>
-function curVariantCtrl(): VariantCtrl | undefined {
-  return current.value?.controls?.find(
-    (c): c is VariantCtrl => c.kind === 'variants' && c.options.length > 1,
-  )
-}
-// Forward respecting sub-steps: advance a step if the slide has one left,
-// otherwise move to the next slide (the deck resets it to its first step).
-function stepForward() {
-  const ctrl = curVariantCtrl()
-  if (ctrl) {
-    const st = stateFor(ctrl.stateKey)
-    if (st.variant.value < ctrl.options.length - 1) { st.variant.value++; return }
-  }
-  advance()
-}
-// Backward respecting sub-steps: step back if possible, else previous slide
-// (the deck arrives at its last step).
-function stepBack() {
-  const ctrl = curVariantCtrl()
-  if (ctrl) {
-    const st = stateFor(ctrl.stateKey)
-    if (st.variant.value > 0) { st.variant.value--; return }
-  }
-  back()
-}
+function advance() { postNav('next') }
+function back() { postNav('prev') }
+// Mirror the synced index into this window's hash (for reload/deep-link).
+watch(idx, (v) => history.replaceState(null, '', `#${v + 1}`))
 
 function onKey(e: KeyboardEvent) {
   // Record every key for the detector (before any early-return below).
@@ -111,9 +88,9 @@ function onKey(e: KeyboardEvent) {
   if (!clickerOn.value) return
   switch (e.key) {
     case 'PageUp': case 'ArrowUp': case 'ArrowRight':
-      e.preventDefault(); stepForward(); break
+      e.preventDefault(); advance(); break
     case 'PageDown': case 'ArrowDown': case 'ArrowLeft':
-      e.preventDefault(); stepBack(); break
+      e.preventDefault(); back(); break
   }
 }
 
@@ -211,7 +188,7 @@ function openAudience() {
       <section class="p-current">
         <div class="p-label">Actual <span class="num">{{ String(idx + 1).padStart(2, '0') }} / {{ String(total).padStart(2, '0') }}</span></div>
         <div class="p-stage">
-          <iframe :src="audienceSrc" class="p-stage-frame" title="Diapositiva actual"></iframe>
+          <iframe ref="frameEl" :src="audienceSrc" class="p-stage-frame" title="Diapositiva actual"></iframe>
         </div>
         <div class="p-title">{{ current.title }}</div>
       </section>
@@ -445,6 +422,7 @@ function openAudience() {
   font-size: 0.9rem;
   line-height: 1.55;
   color: var(--fg-secondary);
+  white-space: pre-wrap;
 }
 
 .p-controls {
