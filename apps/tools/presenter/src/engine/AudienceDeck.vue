@@ -42,6 +42,22 @@ const total = computed(() => slides.value.length)
 const isCover = computed(() => displayIdx.value === 0)
 const isClose = computed(() => displayIdx.value === total.value - 1)
 
+// Persistent "thread" process bar (deck chrome — stays mounted across slides so
+// only the highlighted step animates on navigation).
+const threadSteps = computed(() => props.presentation.thread?.steps ?? null)
+const threadState = computed(() => slides.value[displayIdx.value]?.thread ?? null)
+const showThread = computed(() => !!(threadSteps.value && threadState.value))
+function threadStepState(i: number): 'active' | 'done' | 'todo' {
+  const st = threadState.value
+  if (!st) return 'todo'
+  if (st.complete) return 'done'
+  const steps = threadSteps.value ?? []
+  const a = steps.findIndex((s) => s.key === st.active)
+  if (i === a) return 'active'
+  if (a >= 0 && i < a) return 'done'
+  return 'todo'
+}
+
 const slideHostEl = ref<HTMLElement | null>(null)
 const slideRef = ref<any>(null)
 // `transitioning` no longer gates navigation (that caused fast nav to be dropped
@@ -225,6 +241,13 @@ if (!isNaN(hash) && hash >= 1 && hash <= slides.value.length) idx.value = hash -
     <div class="deck-stage" :style="stageStyle">
       <div class="slide-host" ref="slideHostEl" :key="displayIdx">
         <component :is="current" ref="slideRef" />
+      </div>
+
+      <div v-if="threadSteps" class="thread-chrome" :class="{ visible: showThread }">
+        <template v-for="(s, i) in threadSteps" :key="s.key">
+          <span class="tc-step" :class="threadStepState(i)">{{ s.label }}</span>
+          <span v-if="i < (threadSteps?.length ?? 0) - 1" class="tc-sep"></span>
+        </template>
       </div>
 
       <div v-show="wordmark && !isCover && !isClose" class="wordmark">

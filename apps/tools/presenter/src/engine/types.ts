@@ -17,12 +17,22 @@ export type PresenterControl =
       highLabel?: string
     }
 
+/** One step of the optional persistent "thread" chrome bar (a process tracker
+ *  pinned above the slides, e.g. SAP → Datasets → … → Dashboard). */
+export interface ThreadStep {
+  key: string
+  label: string
+}
+
 export interface SlideEntry {
   component: Component
   title: string
   notes: string
   /** Optional presenter controls for this slide's internal sub-states. */
   controls?: PresenterControl[]
+  /** Optional state for the persistent thread bar on this slide. Omit to hide
+   *  the bar on this slide. `active` lights one step; `complete` lights all. */
+  thread?: { active?: string; complete?: boolean }
 }
 
 export interface Wordmark {
@@ -47,6 +57,10 @@ export interface Presentation {
   meta: PresentationMeta
   slides: SlideEntry[]
   theme?: ThemeTokens
+  /** Optional persistent process-tracker bar shown above slides that declare a
+   *  `thread` state. Rendered as deck chrome so it stays mounted across slides —
+   *  only the highlighted step animates on navigation. */
+  thread?: { steps: ThreadStep[] }
   /** Optional full replacement for the presenter console (escape hatch). */
   Presenter?: Component
 }

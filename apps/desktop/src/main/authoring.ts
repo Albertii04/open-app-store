@@ -80,6 +80,33 @@ function safeReaddir(dir: string): string[] {
 const DECK_SKIP = /(^|\/)(node_modules|\.git|dist|attachments|source|__MACOSX)(\/|$)/
 const deckFilter = (s: string): boolean => !DECK_SKIP.test(s) && !s.endsWith('.sourcepath')
 
+// Reference material is meant to be read in place (--add-dir), never copied into
+// the deck. If the AI editor ignores that and copies a repo in anyway, these
+// trees bloat the Vite project (slow HMR) and break backups. After each turn we
+// delete any of them found inside the deck. `attachments` is intentionally NOT
+// here — it holds real images the deck imports.
+const DECK_JUNK = new Set(['node_modules', '.git', '.pnpm-store', 'source', 'dist', 'target', '__MACOSX'])
+
+/** Remove any DECK_JUNK folders the editor created inside a deck (defense vs.
+ *  the agent copying reference material in instead of reading it in place). */
+async function pruneDeckJunk(presId: string): Promise<void> {
+  const walk = async (dir: string): Promise<void> => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      if (!e.isDirectory()) continue
+      const full = join(dir, e.name)
+      if (DECK_JUNK.has(e.name)) await rm(full, { recursive: true, force: true }).catch(() => {})
+      else await walk(full)
+    }
+  }
+  await walk(join(presentationsDir(), presId))
+}
+
 /** Restore user decks from the userData backup into the source tree (dev only). */
 export function restoreUserDecks(): void {
   if (app.isPackaged) return // packaged decks are baked into dist; source tree is read-only
@@ -738,7 +765,7 @@ export function sendChat(
     // textos, imágenes. Only the images actually used in slides get copied into
     // the presentation, because Vite bundles assets from the project tree.
     const sourceLine = source
-      ? `El material de referencia del usuario está en ${source} (carpeta añadida con acceso de lectura). LÉELO EN SITIO con Read/Glob/Grep — código, CLAUDE.md, diseño, textos, imágenes — y NO lo dupliques en la presentación. Excepción: para una imagen que vayas a MOSTRAR en una slide, cópiala a assets/ de la presentación e impórtala (Vite empaqueta desde el proyecto); el resto se queda donde está. Si el usuario añade cosas a esa carpeta luego, las verás en el siguiente turno.`
+      ? `El material de referencia del usuario está en ${source} (carpeta añadida con acceso de lectura). LÉELO EN SITIO con Read/Glob/Grep — código, CLAUDE.md, diseño, textos, imágenes — y NO lo dupliques en la presentación. PROHIBIDO: copiar el repo o partes de él al deck, crear una carpeta source/ dentro de la presentación, o copiar node_modules/.git/código fuente. Excepción ÚNICA: una imagen que vayas a MOSTRAR en una slide, cópiala a assets/ e impórtala (Vite empaqueta desde el proyecto); todo lo demás se queda donde está. Si el usuario añade cosas a esa carpeta luego, las verás en el siguiente turno.`
       : ''
 
     // First turn of a session: prepend a preamble. In PLAN mode (no edits) Claude
@@ -806,8 +833,14 @@ export function sendChat(
           })
           // The deck likely changed — refresh its cover thumbnail + back up.
           if (!msg.is_error) {
-            void renderThumbnail(presId).catch(() => {})
-            backupUserDecks()
+            // Prune first so the thumbnail render + backup never see copied-in
+            // reference junk (and Vite stops watching it).
+            void pruneDeckJunk(presId)
+              .catch(() => {})
+              .finally(() => {
+                void renderThumbnail(presId).catch(() => {})
+                backupUserDecks()
+              })
           }
         }
         // everything else (system/hook/rate_limit/init) is noise — ignored

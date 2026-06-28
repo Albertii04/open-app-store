@@ -16,6 +16,32 @@ onUnmounted(() => {
 const slides = props.presentation.slides
 const themeVars = props.presentation.theme?.vars ?? {}
 
+// Deck chrome — the persistent thread/"índice" bar, wordmark and page counter —
+// is normally drawn by the LIVE deck wrappers (AudienceDeck/SoloDeck), NOT by the
+// slide component. ExportDeck mounts only `s.component`, so without this it would
+// drop everything the chrome contributes to each slide. Replicate it here, reading
+// the same `presentation.thread` / per-slide `thread` state and reusing the global
+// engine.css chrome classes so the PDF matches what's on screen.
+const threadSteps = props.presentation.thread?.steps ?? null
+const wordmark = props.presentation.theme?.wordmark ?? null
+const lastIdx = slides.length - 1
+
+function threadStepState(
+  state: { active?: string; complete?: boolean } | undefined,
+  i: number,
+): 'active' | 'done' | 'todo' {
+  if (!state) return 'todo'
+  if (state.complete) return 'done'
+  const a = (threadSteps ?? []).findIndex((s) => s.key === state.active)
+  if (i === a) return 'active'
+  if (a >= 0 && i < a) return 'done'
+  return 'todo'
+}
+
+function paddedNum(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
 // Preset every "variants" control to ONE PAST its last option BEFORE the slide
 // components mount (useSliderState reads localStorage on setup). A stepper then
 // renders with all steps "past" — every card shown, none left in the live
@@ -62,6 +88,26 @@ onMounted(async () => {
     <section v-for="(s, i) in slides" :key="i" class="export-page">
       <div class="slide-host">
         <component :is="s.component" />
+      </div>
+
+      <!-- Deck chrome, mirroring the live deck so the PDF shows everything the
+           slide shows. .export-page is position:relative, so these absolutely
+           positioned chrome elements anchor to the page just like .deck-stage. -->
+      <div
+        v-if="threadSteps && s.thread"
+        class="thread-chrome visible"
+      >
+        <template v-for="(step, si) in threadSteps" :key="step.key">
+          <span class="tc-step" :class="threadStepState(s.thread, si)">{{ step.label }}</span>
+          <span v-if="si < threadSteps.length - 1" class="tc-sep"></span>
+        </template>
+      </div>
+
+      <div v-if="wordmark && i !== 0 && i !== lastIdx" class="wordmark">
+        <span class="wm-primary">{{ wordmark.primary }}</span><span class="wm-slash">/</span><span class="wm-suffix">{{ wordmark.suffix }}</span>
+      </div>
+      <div v-if="i !== 0" class="counter">
+        <span>{{ paddedNum(i + 1) }}</span><span class="sep">/</span><span>{{ paddedNum(slides.length) }}</span>
       </div>
     </section>
   </div>
