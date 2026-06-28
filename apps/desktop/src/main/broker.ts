@@ -14,6 +14,7 @@ import {
   setSourcePath,
   saveAttachment,
   exportPresentation,
+  exportPresentationPdf,
   importPresentation,
   getThumbnail,
   createPresentation,
@@ -205,6 +206,10 @@ export function installBroker(): void {
   ipcMain.handle(IPC.authoringExport, (e, presId: string) => {
     authorize(e.sender.id, 'authoring')
     return exportPresentation(presId)
+  })
+  ipcMain.handle(IPC.authoringExportPdf, (e, presId: string) => {
+    authorize(e.sender.id, 'authoring')
+    return exportPresentationPdf(presId)
   })
   ipcMain.handle(IPC.authoringImport, (e) => {
     authorize(e.sender.id, 'authoring')

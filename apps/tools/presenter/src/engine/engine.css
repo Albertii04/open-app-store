@@ -126,3 +126,47 @@ img { display: block; max-width: 100%; }
   width: 0%;
   transition: width 700ms var(--ease);
 }
+
+/* ---- persistent thread / process bar (deck chrome) ----
+   Pinned at the top of the slide content area, aligned with the slide padding.
+   Stays mounted across slides; only the highlighted step transitions. */
+.thread-chrome {
+  position: absolute;
+  top: var(--pad-y);
+  left: var(--pad-x);
+  right: var(--pad-x);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--rule);
+  opacity: 0;
+  transition: opacity 450ms var(--ease);
+  pointer-events: none;
+  z-index: 9;
+}
+.thread-chrome.visible { opacity: 1; }
+.tc-step {
+  font-family: var(--font-display, var(--font));
+  font-size: clamp(0.7rem, 1vw, 0.9rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding: 0.3rem 0.7rem;
+  border-radius: 5px;
+  white-space: nowrap;
+  transition: background 400ms var(--ease), color 400ms var(--ease), box-shadow 400ms var(--ease);
+}
+.tc-step.active {
+  background: var(--brand-300);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(161, 0, 255, 0.3);
+}
+.tc-step.done { color: var(--fg-primary); background: var(--purple-50, var(--brand-50)); }
+.tc-step.todo { color: var(--fg-faint); }
+.tc-sep {
+  width: 0.42em; height: 0.42em;
+  border-top: 0.14em solid var(--rule-strong);
+  border-right: 0.14em solid var(--rule-strong);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}

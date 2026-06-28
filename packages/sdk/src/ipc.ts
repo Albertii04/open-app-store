@@ -26,6 +26,7 @@ export const IPC = {
   authoringSetSource: 'toolbox:authoring.setSource',
   authoringAttach: 'toolbox:authoring.attach',
   authoringExport: 'toolbox:authoring.export',
+  authoringExportPdf: 'toolbox:authoring.exportPdf',
   authoringImport: 'toolbox:authoring.import',
   authoringThumbnail: 'toolbox:authoring.thumbnail',
 } as const;

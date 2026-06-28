@@ -97,6 +97,9 @@ export interface ToolboxApi {
      *  (opens a native save dialog). Returns the saved path, or null if
      *  cancelled. */
     exportPresentation(presId: string): Promise<string | null>;
+    /** Export the presentation to a PDF, one slide per page (opens a native
+     *  save dialog). Returns the saved path, or null if cancelled. */
+    exportPresentationPdf(presId: string): Promise<string | null>;
     /** Cover image (first slide rendered to JPEG) as a data URL, or null.
      *  Renders on first call (or when `force`), else returns the cached image. */
     thumbnail(presId: string, force?: boolean): Promise<string | null>;

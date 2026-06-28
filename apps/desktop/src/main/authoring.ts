@@ -55,6 +55,10 @@ function templateDir(): string {
 
 const USER_PREFIX = 'u-'
 
+// PDF export page size in CSS px: 16:9 at 1280×720 (= 13.333in × 7.5in @96dpi).
+const PDF_PAGE_W = 1280
+const PDF_PAGE_H = 720
+
 // ---- durable deck backup ----
 // User decks live in the (gitignored) source tree so Vite can compile them, so
 // they don't survive a repo move/clean or ship in CI builds. Mirror each to a
@@ -75,6 +79,33 @@ function safeReaddir(dir: string): string[] {
 // a downloaded CLI) that make cpSync fail with EINVAL.
 const DECK_SKIP = /(^|\/)(node_modules|\.git|dist|attachments|source|__MACOSX)(\/|$)/
 const deckFilter = (s: string): boolean => !DECK_SKIP.test(s) && !s.endsWith('.sourcepath')
+
+// Reference material is meant to be read in place (--add-dir), never copied into
+// the deck. If the AI editor ignores that and copies a repo in anyway, these
+// trees bloat the Vite project (slow HMR) and break backups. After each turn we
+// delete any of them found inside the deck. `attachments` is intentionally NOT
+// here — it holds real images the deck imports.
+const DECK_JUNK = new Set(['node_modules', '.git', '.pnpm-store', 'source', 'dist', 'target', '__MACOSX'])
+
+/** Remove any DECK_JUNK folders the editor created inside a deck (defense vs.
+ *  the agent copying reference material in instead of reading it in place). */
+async function pruneDeckJunk(presId: string): Promise<void> {
+  const walk = async (dir: string): Promise<void> => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      if (!e.isDirectory()) continue
+      const full = join(dir, e.name)
+      if (DECK_JUNK.has(e.name)) await rm(full, { recursive: true, force: true }).catch(() => {})
+      else await walk(full)
+    }
+  }
+  await walk(join(presentationsDir(), presId))
+}
 
 /** Restore user decks from the userData backup into the source tree (dev only). */
 export function restoreUserDecks(): void {
@@ -333,6 +364,110 @@ Abre la URL que imprime Vite. Flechas ← / → cambian de slide; F = pantalla c
   }
 
   return dest
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Export a presentation to a PDF — one slide per page, rendered exactly as the
+ * live deck (final/static state). Opens an offscreen window on the Presenter's
+ * `?export=<id>` route (a vertical stack of 1280×720 pages), screenshots each
+ * page via the GPU compositor, then prints those images to the PDF.
+ *
+ * Why screenshot instead of printing the page directly: Chromium's print path
+ * doesn't honour `mask-composite` or `background-clip: text`, so animated glow
+ * borders fill solid and gradient-clipped titles leave ghost boxes. capturePage
+ * uses the on-screen compositor, so the PDF matches the deck pixel-for-pixel.
+ *
+ * Dev-only: getPreviewUrl() needs the dev server (like the zip export and
+ * thumbnails). Returns the saved path, or null if the user cancelled.
+ */
+export async function exportPresentationPdf(presId: string): Promise<string | null> {
+  if (!presId.startsWith(USER_PREFIX)) throw new Error('invalid presentation')
+  const presFolder = join(presentationsDir(), presId)
+  let name = presId
+  try {
+    name = JSON.parse(readFileSync(join(presFolder, 'presentation.json'), 'utf8')).name || presId
+  } catch {
+    /* fall back to the id */
+  }
+  const slug = slugify(name)
+
+  const res = await dialog.showSaveDialog({
+    title: 'Exportar presentación a PDF',
+    defaultPath: `${slug}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  })
+  if (res.canceled || !res.filePath) return null
+  const dest = res.filePath
+
+  // Throws if packaged (no dev server) — surfaced to the user as an error toast.
+  const base = await getPreviewUrl()
+  const win = new BrowserWindow({
+    show: false,
+    width: PDF_PAGE_W,
+    height: PDF_PAGE_H,
+    paintWhenInitiallyHidden: true,
+    // Isolated, in-memory session: ExportDeck pre-sets slider state in
+    // localStorage, and this keeps it from leaking into the live deck.
+    webPreferences: { offscreen: false, backgroundThrottling: false, partition: 'export-pdf' },
+  })
+  try {
+    await win.loadURL(`${base}?export=${presId}`)
+    // Wait for webfonts (a fallback font reflows/overlaps), then a settle so slide
+    // intro animations reach their final frame before we screenshot.
+    await win.webContents.executeJavaScript('document.fonts.ready.then(() => true)')
+    await sleep(1500)
+
+    const count = (await win.webContents.executeJavaScript(
+      'document.querySelectorAll(".export-page").length',
+    )) as number
+    if (!count) throw new Error('la presentación no tiene diapositivas')
+
+    // Screenshot each 1280×720 page through the compositor.
+    const shots: string[] = []
+    for (let i = 0; i < count; i++) {
+      await win.webContents.executeJavaScript(`window.scrollTo(0, ${i} * ${PDF_PAGE_H})`)
+      await sleep(140)
+      const img = await win.webContents.capturePage({
+        x: 0,
+        y: 0,
+        width: PDF_PAGE_W,
+        height: PDF_PAGE_H,
+      })
+      shots.push(img.toPNG().toString('base64'))
+    }
+
+    // Replace the DOM with the captured images (one per print page) and print
+    // those — plain raster, immune to the print-path CSS gaps noted above.
+    await win.webContents.executeJavaScript(`(() => {
+      const s = document.createElement('style')
+      s.textContent = '@page{size:13.333in 7.5in;margin:0} html,body{margin:0;padding:0;height:auto;width:auto;overflow:visible;background:#fff} #pdfwrap img{display:block;width:${PDF_PAGE_W}px;height:${PDF_PAGE_H}px;break-after:page;page-break-after:always} #pdfwrap img:last-child{break-after:auto;page-break-after:auto}'
+      document.head.appendChild(s)
+      document.body.innerHTML = '<div id="pdfwrap"></div>'
+      return true
+    })()`)
+    for (const b64 of shots) {
+      await win.webContents.executeJavaScript(
+        `(() => { const img = new Image(); img.src = 'data:image/png;base64,' + ${JSON.stringify(b64)}; document.getElementById('pdfwrap').appendChild(img); return true })()`,
+      )
+    }
+    await win.webContents.executeJavaScript(
+      'Promise.all(Array.from(document.images).map((i) => i.decode().catch(() => {}))).then(() => true)',
+    )
+    await sleep(250)
+
+    const pdf = await win.webContents.printToPDF({
+      printBackground: true,
+      preferCSSPageSize: true, // honour the @page { size: 13.333in 7.5in } above
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    })
+    await rm(dest, { force: true })
+    writeFileSync(dest, pdf)
+    return dest
+  } finally {
+    win.destroy()
+  }
 }
 
 const IMPORT_SKIP = /(^|\/)(node_modules|\.git|dist|attachments|__MACOSX)(\/|$)/
@@ -630,7 +765,7 @@ export function sendChat(
     // textos, imágenes. Only the images actually used in slides get copied into
     // the presentation, because Vite bundles assets from the project tree.
     const sourceLine = source
-      ? `El material de referencia del usuario está en ${source} (carpeta añadida con acceso de lectura). LÉELO EN SITIO con Read/Glob/Grep — código, CLAUDE.md, diseño, textos, imágenes — y NO lo dupliques en la presentación. Excepción: para una imagen que vayas a MOSTRAR en una slide, cópiala a assets/ de la presentación e impórtala (Vite empaqueta desde el proyecto); el resto se queda donde está. Si el usuario añade cosas a esa carpeta luego, las verás en el siguiente turno.`
+      ? `El material de referencia del usuario está en ${source} (carpeta añadida con acceso de lectura). LÉELO EN SITIO con Read/Glob/Grep — código, CLAUDE.md, diseño, textos, imágenes — y NO lo dupliques en la presentación. PROHIBIDO: copiar el repo o partes de él al deck, crear una carpeta source/ dentro de la presentación, o copiar node_modules/.git/código fuente. Excepción ÚNICA: una imagen que vayas a MOSTRAR en una slide, cópiala a assets/ e impórtala (Vite empaqueta desde el proyecto); todo lo demás se queda donde está. Si el usuario añade cosas a esa carpeta luego, las verás en el siguiente turno.`
       : ''
 
     // First turn of a session: prepend a preamble. In PLAN mode (no edits) Claude
@@ -698,8 +833,14 @@ export function sendChat(
           })
           // The deck likely changed — refresh its cover thumbnail + back up.
           if (!msg.is_error) {
-            void renderThumbnail(presId).catch(() => {})
-            backupUserDecks()
+            // Prune first so the thumbnail render + backup never see copied-in
+            // reference junk (and Vite stops watching it).
+            void pruneDeckJunk(presId)
+              .catch(() => {})
+              .finally(() => {
+                void renderThumbnail(presId).catch(() => {})
+                backupUserDecks()
+              })
           }
         }
         // everything else (system/hook/rate_limit/init) is noise — ignored
