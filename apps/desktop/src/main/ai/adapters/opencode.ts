@@ -1,0 +1,100 @@
+import { spawn } from 'node:child_process'
+import { writeFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import type { AgentRunOptions, AgentHandle, ProviderAdapter } from '../types.js'
+import type { ChatEvent } from '../../../shared/types.js'
+
+export function buildOpencodeArgs(o: AgentRunOptions): string[] {
+  const args = ['run', '--format', 'json', '--dir', o.cwd]
+  if (o.model) args.push('--model', o.model)
+  if (o.resumeSessionId) args.push('--session', o.resumeSessionId)
+  args.push(o.message)
+  return args
+}
+
+const READONLY_CONFIG = {
+  permission: { edit: 'deny', bash: 'deny', webfetch: 'deny', websearch: 'deny' },
+}
+
+export function makeOpencodeParser(): (line: string) => ChatEvent[] {
+  let sessionId: string | undefined
+  return (line: string): ChatEvent[] => {
+    let msg: Record<string, unknown>
+    try {
+      msg = JSON.parse(line)
+    } catch {
+      return []
+    }
+    const props = (msg.properties as Record<string, unknown>) ?? {}
+    switch (msg.type) {
+      case 'session.created':
+      case 'session.updated': {
+        const info = (props.info as { id?: string }) ?? {}
+        if (info.id) sessionId = info.id
+        return []
+      }
+      case 'message.part.updated': {
+        const part = (props.part as Record<string, unknown>) ?? {}
+        if (part.type === 'text' && typeof part.text === 'string' && part.text.trim())
+          return [{ kind: 'assistant', text: part.text }]
+        if (part.type === 'tool') {
+          const name = (part.tool as string) ?? 'tool'
+          return [{ kind: 'tool', text: String(name) }]
+        }
+        return []
+      }
+      case 'session.idle':
+        return [{ kind: 'done', text: '', sessionId }]
+      case 'session.error':
+        return [{ kind: 'error', text: String((props.error as string) ?? 'opencode error') }]
+      default:
+        return []
+    }
+  }
+}
+
+export const opencodeAdapter: ProviderAdapter = {
+  id: 'opencode',
+  label: 'opencode',
+  binaryNames: ['opencode'],
+  supportsExternalReadDirs: false,
+  versionArgs: ['--version'],
+  run(bin, o, emit): AgentHandle {
+    let cfgPath: string | null = null
+    if (!o.allowEdits) {
+      cfgPath = join(o.cwd, 'opencode.json')
+      try {
+        writeFileSync(cfgPath, JSON.stringify(READONLY_CONFIG), 'utf8')
+      } catch {
+        cfgPath = null
+      }
+    }
+    const cleanup = (): void => {
+      if (cfgPath) {
+        try {
+          rmSync(cfgPath)
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    const child = spawn(bin, buildOpencodeArgs(o), { cwd: o.cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const parse = makeOpencodeParser()
+    let buf = ''
+    child.stdout.on('data', (chunk: Buffer) => {
+      buf += chunk.toString()
+      let nl: number
+      while ((nl = buf.indexOf('\n')) !== -1) {
+        const line = buf.slice(0, nl).trim()
+        buf = buf.slice(nl + 1)
+        if (line) for (const ev of parse(line)) emit(ev)
+      }
+    })
+    child.on('error', (e) => emit({ kind: 'error', text: e.message }))
+    child.on('exit', (_c, signal) => {
+      cleanup()
+      if (signal) emit({ kind: 'error', text: 'Detenido.' })
+    })
+    return { stop: () => child.kill() }
+  },
+}
