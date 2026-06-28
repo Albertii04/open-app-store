@@ -1,5 +1,12 @@
 import type { CapabilityRequest, ResolvedApp, ToolManifest } from '@openappstore/sdk'
 
+export interface ChatEvent {
+  kind: 'assistant' | 'tool' | 'done' | 'error'
+  text: string
+  /** On 'done': the agent session id, so the caller can resume this conversation. */
+  sessionId?: string
+}
+
 /** What the shell renderer needs to render a tool in the launcher/marketplace. */
 export interface ToolSummary {
   id: string

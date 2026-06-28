@@ -1,3 +1,4 @@
+import type { ChatEvent } from '../shared/types.js'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { cp, rm, writeFile } from 'node:fs/promises'
@@ -719,14 +720,6 @@ export async function getThumbnail(presId: string, force = false): Promise<strin
 }
 
 // ---- AI editor (Claude Code) ----
-
-type ChatEvent = {
-  kind: 'assistant' | 'tool' | 'done' | 'error'
-  text: string
-  // On 'done': the Claude Code session id, so the caller can --resume this exact
-  // conversation later (sessions are per-conversation, owned by the renderer).
-  sessionId?: string
-}
 
 // Running chat process per presentation, so it can be stopped.
 const chatProc = new Map<string, ChildProcess>()
