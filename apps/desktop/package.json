@@ -11,7 +11,9 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && vue-tsc --noEmit -p tsconfig.web.json",
     "lint": "tsc --noEmit -p tsconfig.node.json",
-    "package": "electron-vite build && electron-builder"
+    "package": "electron-vite build && electron-builder",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@openappstore/sdk": "workspace:*",
@@ -33,6 +35,7 @@
     "tailwindcss": "^4",
     "typescript": "~5.9.3",
     "vite": "^5.4.11",
+    "vitest": "^2.1.9",
     "vue": "^3.5.13",
     "vue-tsc": "^2.1.10"
   }
