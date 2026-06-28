@@ -1,16 +1,8 @@
 import type { ChatEvent } from '../../shared/types.js'
 
-export type ProviderId = 'claude' | 'codex' | 'opencode'
-
-export interface ProviderConfig {
-  binPath?: string // empty → auto-detect
-  model?: string
-}
-
-export interface AiSettings {
-  active: ProviderId
-  providers: Record<ProviderId, ProviderConfig>
-}
+// Re-export renderer-safe DTOs from the shared package (single source of truth).
+export type { ProviderId, ProviderConfig, AiSettings } from '../../shared/ai-types.js'
+import type { ProviderId, AiSettings } from '../../shared/ai-types.js'
 
 export interface AgentRunOptions {
   cwd: string

@@ -1,4 +1,5 @@
 import type { CapabilityRequest, ResolvedApp, ToolManifest } from '@openappstore/sdk'
+import type { AiSettings, AiSettingsPatch, AiTestResult } from './ai-types.js'
 
 export interface ChatEvent {
   kind: 'assistant' | 'tool' | 'done' | 'error'
@@ -116,6 +117,12 @@ export interface ShellApi {
   checkForUpdates(): Promise<void>
   /** This build's version string (e.g. "0.2.5"). */
   appVersion(): Promise<string>
+
+  // ---- AI provider settings ----
+  aiGet(): Promise<AiSettings>
+  aiSet(patch: AiSettingsPatch): Promise<AiSettings>
+  aiDetect(provider: string): Promise<string | null>
+  aiTest(provider: string): Promise<AiTestResult>
 }
 
 declare global {
