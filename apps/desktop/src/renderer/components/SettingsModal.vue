@@ -67,10 +67,15 @@ async function test(id: ProviderId): Promise<void> {
   <div v-if="open && loaded" class="overlay" @click.self="emit('close')">
     <div class="modal">
       <header class="sm-head">
-        <h2>Ajustes · IA</h2>
+        <h2>Configuración</h2>
         <button class="sm-x" @click="emit('close')">✕</button>
       </header>
-      <p class="hint">Proveedor que edita las presentaciones. La autenticación la gestiona cada CLI.</p>
+      <h3 class="sm-section">Proveedor de IA</h3>
+      <p class="hint">
+        Proveedor de IA que usan las apps de Open App Store (como Presenter) para crear y editar
+        contenido. Elige el predeterminado aquí; cada app puede cambiarlo. La autenticación la
+        gestiona cada CLI.
+      </p>
       <section v-for="id in ids" :key="id" class="prov">
         <label class="row">
           <input type="radio" :value="id" v-model="settings.active" @change="save" />
@@ -138,6 +143,14 @@ async function test(id: ProviderId): Promise<void> {
 }
 .sm-x:hover {
   color: #eee;
+}
+.sm-section {
+  margin: 14px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9aa;
 }
 .hint {
   opacity: 0.7;
