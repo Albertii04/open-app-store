@@ -1,5 +1,5 @@
 import { build, type Plugin } from 'esbuild'
-import { parse as parseSfc, compileScript, compileTemplate } from '@vue/compiler-sfc'
+import { parse as parseSfc, compileScript, compileTemplate, compileStyle } from '@vue/compiler-sfc'
 import { readFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -10,6 +10,34 @@ export type CompileResult =
 
 /** Engine-path regex: matches relative paths that navigate to an "engine" segment */
 const ENGINE_RE = /(^|\/)engine($|\/)/
+
+/**
+ * Build a JS snippet that injects `css` as a <style> tag at runtime. Decks load
+ * as a single Blob module with no file server, so all CSS (SFC <style> blocks
+ * and imported .css files) must be embedded and self-injected rather than
+ * emitted as a separate stylesheet. Font `@import url(https://…)` inside the CSS
+ * survives as text and the browser fetches it from the injected style.
+ */
+function cssInjectJs(css: string): string {
+  return (
+    `{const __s=document.createElement('style');` +
+    `__s.textContent=${JSON.stringify(css)};` +
+    `document.head.appendChild(__s);}`
+  )
+}
+
+/** esbuild plugin: load imported `.css` files as self-injecting JS modules. */
+function makeCssPlugin(): Plugin {
+  return {
+    name: 'presenter-css',
+    setup(build) {
+      build.onLoad({ filter: /\.css$/ }, (args) => {
+        const css = readFileSync(args.path, 'utf-8')
+        return { contents: cssInjectJs(css), loader: 'js' }
+      })
+    },
+  }
+}
 
 /**
  * esbuild plugin that:
@@ -78,6 +106,21 @@ function makeVuePlugin(): Plugin {
         const scopeId = `data-v-${randomUUID().slice(0, 8)}`
         let code: string
 
+        // Compile each <style> block (honoring `scoped`) and self-inject it, so
+        // component styles survive in the standalone Blob bundle. Uses the same
+        // scopeId as the script/template so scoped selectors match.
+        let styleInject = ''
+        for (const style of descriptor.styles) {
+          const compiledStyle = compileStyle({
+            source: style.content,
+            filename,
+            id: scopeId,
+            scoped: style.scoped,
+          })
+          if (compiledStyle.errors.length === 0 && compiledStyle.code.trim())
+            styleInject += `\n${cssInjectJs(compiledStyle.code)}`
+        }
+
         if (descriptor.scriptSetup || descriptor.script) {
           // inlineTemplate:true makes compileScript embed the render fn in setup
           // — produces a single clean `export default _defineComponent({...})`
@@ -85,7 +128,7 @@ function makeVuePlugin(): Plugin {
             id: scopeId,
             inlineTemplate: true,
           })
-          code = compiled.content
+          code = compiled.content + styleInject
         } else if (descriptor.template) {
           // Template-only component (no script): compile template separately
           const compiled = compileTemplate({
@@ -102,10 +145,10 @@ function makeVuePlugin(): Plugin {
             }
           }
           // Wrap template render fn as a simple component
-          code = `${compiled.code}\nexport default { render }`
+          code = `${compiled.code}\nexport default { render }${styleInject}`
         } else {
           // Empty SFC — export empty object
-          code = `export default {}`
+          code = `export default {}${styleInject}`
         }
 
         return {
@@ -136,8 +179,24 @@ export async function compileDeckAt(deckDir: string): Promise<CompileResult> {
       platform: 'browser',
       target: 'es2022',
       sourcemap: true,
-      loader: { '.json': 'json' },
-      plugins: [makeVuePlugin(), makeExternalizerPlugin(externals)],
+      // Decks load as a single Blob module (no file server), so asset imports
+      // are inlined as data URLs rather than emitted as separate files.
+      loader: {
+        '.json': 'json',
+        '.png': 'dataurl',
+        '.jpg': 'dataurl',
+        '.jpeg': 'dataurl',
+        '.gif': 'dataurl',
+        '.webp': 'dataurl',
+        '.svg': 'dataurl',
+        '.avif': 'dataurl',
+        '.mp4': 'dataurl',
+        '.webm': 'dataurl',
+        '.woff': 'dataurl',
+        '.woff2': 'dataurl',
+        '.ttf': 'dataurl',
+      },
+      plugins: [makeVuePlugin(), makeCssPlugin(), makeExternalizerPlugin(externals)],
       logLevel: 'silent',
     })
 
