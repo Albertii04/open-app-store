@@ -7,7 +7,7 @@ describe('codex adapter', () => {
     expect(a.slice(0, 2)).toEqual(['exec', '--json'])
     expect(a.join(' ')).toContain('--cd /d')
     expect(a.join(' ')).toContain('--sandbox workspace-write')
-    expect(a.join(' ')).toContain('--ask-for-approval never')
+    expect(a.join(' ')).not.toContain('--ask-for-approval')
     expect(a.join(' ')).toContain('--model gpt-5')
     expect(a[a.length - 1]).toBe('hi')
   })

@@ -49,6 +49,7 @@ export const claudeAdapter: ProviderAdapter = {
   versionArgs: ['--version'],
   run(bin, o, emit): AgentHandle {
     const child = spawn(bin, buildClaudeArgs(o), { cwd: o.cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    child.stderr?.on('data', () => {})
     let buf = ''
     child.stdout.on('data', (chunk: Buffer) => {
       buf += chunk.toString()

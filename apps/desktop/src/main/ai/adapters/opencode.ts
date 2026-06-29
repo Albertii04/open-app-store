@@ -89,6 +89,7 @@ export const opencodeAdapter: ProviderAdapter = {
       }
     }
     const child = spawn(bin, buildOpencodeArgs(o), { cwd: o.cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    child.stderr?.on('data', () => {})
     const parse = makeOpencodeParser()
     let buf = ''
     child.stdout.on('data', (chunk: Buffer) => {

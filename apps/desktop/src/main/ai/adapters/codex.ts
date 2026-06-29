@@ -6,8 +6,10 @@ export function buildCodexArgs(o: AgentRunOptions): string[] {
   const args = ['exec', '--json']
   if (o.resumeSessionId) args.push('resume', o.resumeSessionId)
   args.push('--cd', o.cwd)
+  // `codex exec` is non-interactive (no approval prompts); the sandbox mode is
+  // what gates edits. Note: `--ask-for-approval` is NOT valid on `exec` and
+  // makes the CLI reject the whole command.
   args.push('--sandbox', o.allowEdits ? 'workspace-write' : 'read-only')
-  args.push('--ask-for-approval', 'never')
   args.push('--skip-git-repo-check')
   if (o.model) args.push('--model', o.model)
   args.push(o.message)
@@ -41,8 +43,10 @@ export function makeCodexParser(): (line: string) => ChatEvent[] {
       return []
     }
     if (t === 'turn.completed') return [{ kind: 'done', text: '', sessionId }]
-    if (t === 'error' || t === 'turn.failed')
-      return [{ kind: 'error', text: String((msg.message as string) ?? 'Codex error') }]
+    if (t === 'error' || t === 'turn.failed') {
+      const err = (msg.error as { message?: string } | undefined)?.message ?? (msg.message as string)
+      return [{ kind: 'error', text: String(err ?? 'Codex error') }]
+    }
     return []
   }
 }
@@ -55,6 +59,9 @@ export const codexAdapter: ProviderAdapter = {
   versionArgs: ['--version'],
   run(bin, o, emit): AgentHandle {
     const child = spawn(bin, buildCodexArgs(o), { cwd: o.cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    // codex logs verbosely to stderr; drain it so its pipe buffer can't fill and
+    // deadlock the child. (Real errors also arrive as JSON on stdout.)
+    child.stderr?.on('data', () => {})
     const parse = makeCodexParser()
     let buf = ''
     child.stdout.on('data', (chunk: Buffer) => {
