@@ -27,7 +27,7 @@ import type {
 import type { StoreApp } from './store-types'
 import AppCard from './components/AppCard.vue'
 import AppDetail from './components/AppDetail.vue'
-import SettingsModal from './components/SettingsModal.vue'
+import SettingsView from './components/SettingsView.vue'
 
 const isMac = navigator.platform.toLowerCase().includes('mac')
 
@@ -45,7 +45,7 @@ const progress = ref<Record<string, InstallProgress>>({})
 const favs = ref<Set<string>>(new Set())
 const update = ref<UpdateStatus | null>(null)
 const appVersion = ref('')
-const settingsOpen = ref(false)
+
 
 const updateBadge = computed(() => {
   switch (update.value?.phase) {
@@ -371,7 +371,7 @@ onMounted(() => {
           </button>
 
           <!-- settings (home only) -->
-          <button class="nav mt-auto" @click="settingsOpen = true">
+          <button class="nav mt-auto" :class="{ 'nav-on': nav === 'settings' }" @click="nav = 'settings'">
             <Settings class="size-4" /> Configuración
           </button>
 
@@ -392,57 +392,63 @@ onMounted(() => {
 
         <!-- content -->
         <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <!-- top bar -->
-          <div class="flex items-center gap-3 border-b border-neutral-200 px-7 py-3 dark:border-neutral-800">
-            <div
-              class="flex w-full max-w-md items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900"
-            >
-              <Search class="size-4 text-neutral-400" />
-              <input
-                v-model="query"
-                type="text"
-                placeholder="Search apps"
-                class="w-full bg-transparent text-[13px] outline-none placeholder:text-neutral-400"
-              />
-            </div>
-          </div>
+          <!-- settings screen -->
+          <SettingsView v-if="nav === 'settings'" />
 
-          <!-- grid -->
-          <div class="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-            <h1 class="mb-1 text-2xl font-bold tracking-tight">{{ heading }}</h1>
-            <p class="mb-6 text-[13px] text-neutral-500">
-              Open-source apps to replace the paid ones — install in one click.
-            </p>
-
-            <div
-              v-if="visible.length"
-              class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4"
-            >
-              <AppCard
-                v-for="a in visible"
-                :key="a.id"
-                :app="a"
-                :installed="isInstalled(a)"
-                :updatable="isUpdatable(a)"
-                :favorite="favs.has(a.id)"
-                @open="selected = a"
-                @toggle-fav="toggleFav(a)"
-              />
+          <!-- app grid (all other nav states) -->
+          <template v-else>
+            <!-- top bar -->
+            <div class="flex items-center gap-3 border-b border-neutral-200 px-7 py-3 dark:border-neutral-800">
+              <div
+                class="flex w-full max-w-md items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900"
+              >
+                <Search class="size-4 text-neutral-400" />
+                <input
+                  v-model="query"
+                  type="text"
+                  placeholder="Search apps"
+                  class="w-full bg-transparent text-[13px] outline-none placeholder:text-neutral-400"
+                />
+              </div>
             </div>
 
-            <div
-              v-else
-              class="flex max-w-md flex-col items-start gap-2 rounded-xl border border-dashed border-neutral-300 p-7 dark:border-neutral-700"
-            >
-              <PackageOpen class="size-6 text-neutral-400" />
-              <p class="text-[15px] font-semibold">
-                {{ query ? 'No results' : 'Nothing here yet' }}
+            <!-- grid -->
+            <div class="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+              <h1 class="mb-1 text-2xl font-bold tracking-tight">{{ heading }}</h1>
+              <p class="mb-6 text-[13px] text-neutral-500">
+                Open-source apps to replace the paid ones — install in one click.
               </p>
-              <p class="text-[13px] leading-relaxed text-neutral-500">
-                {{ query ? 'Try another search.' : 'The catalog will appear once it loads.' }}
-              </p>
+
+              <div
+                v-if="visible.length"
+                class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4"
+              >
+                <AppCard
+                  v-for="a in visible"
+                  :key="a.id"
+                  :app="a"
+                  :installed="isInstalled(a)"
+                  :updatable="isUpdatable(a)"
+                  :favorite="favs.has(a.id)"
+                  @open="selected = a"
+                  @toggle-fav="toggleFav(a)"
+                />
+              </div>
+
+              <div
+                v-else
+                class="flex max-w-md flex-col items-start gap-2 rounded-xl border border-dashed border-neutral-300 p-7 dark:border-neutral-700"
+              >
+                <PackageOpen class="size-6 text-neutral-400" />
+                <p class="text-[15px] font-semibold">
+                  {{ query ? 'No results' : 'Nothing here yet' }}
+                </p>
+                <p class="text-[13px] leading-relaxed text-neutral-500">
+                  {{ query ? 'Try another search.' : 'The catalog will appear once it loads.' }}
+                </p>
+              </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
     </div>
@@ -463,9 +469,6 @@ onMounted(() => {
         @toggle-fav="toggleFav(selected!)"
       />
     </Transition>
-
-    <!-- AI settings modal -->
-    <SettingsModal :open="settingsOpen" @close="settingsOpen = false" />
 
     <!-- auto-update toast -->
     <Transition name="fade">
