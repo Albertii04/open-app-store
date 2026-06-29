@@ -35,6 +35,9 @@ importers:
       esbuild:
         specifier: ^0.28.1
         version: 0.28.1
+      esbuild-wasm:
+        specifier: ^0.28.1
+        version: 0.28.1
       lucide-vue-next:
         specifier: ^1.0.0
         version: 1.0.0(vue@3.5.35(typescript@5.9.3))
@@ -1660,6 +1663,11 @@ packages:
 
   es6-error@4.1.1:
     resolution: {integrity: sha512-Um/+FxMr9CISWh0bi5Zv0iOD+4cFh5qLeks1qhAopKVAJw3drgKbKySikp7wGhDL0HPeaja0P5ULZrxLkniUVg==}
+
+  esbuild-wasm@0.28.1:
+    resolution: {integrity: sha512-p/GD4E8oYRjg3kjdKrnMb0s4PzXgJF42e0MF4H0+ACyK/kIlFRp3e0fzOleIG+wBBm6MM3XQrbpe7soEA+vJIA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   esbuild@0.21.5:
     resolution: {integrity: sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw==}
@@ -4395,6 +4403,8 @@ snapshots:
 
   es6-error@4.1.1:
     optional: true
+
+  esbuild-wasm@0.28.1: {}
 
   esbuild@0.21.5:
     optionalDependencies:
