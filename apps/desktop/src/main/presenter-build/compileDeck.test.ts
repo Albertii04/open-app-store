@@ -52,4 +52,17 @@ export default { x: AudienceDeck }`,
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.externals).toContain('presenter-engine')
   })
+
+  it('rejects a deck that imports an unknown bare module (lodash)', async () => {
+    const deck = mkdtempSync(join(tmpdir(), 'deck3-'))
+    mkdirSync(deck, { recursive: true })
+    writeFileSync(
+      join(deck, 'index.ts'),
+      `import { cloneDeep } from 'lodash'
+export default { cloneDeep }`,
+    )
+    const r = await compileDeckAt(deck)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toContain('lodash')
+  })
 })

@@ -3,12 +3,15 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFil
 import { compileDeck } from './presenter-build/compileDeck.js'
 import { cp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { pathToFileURL } from 'node:url'
 import { runAgent } from './ai/run.js'
 import { getAiSettings } from './ai/settings.js'
 import type { AgentHandle } from './ai/types.js'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { app, BrowserWindow, dialog } from 'electron'
 import AdmZip from 'adm-zip'
+import { toolPreloadPath } from './tools.js'
+import { registerToolView, unregisterToolView } from './tool-registry.js'
 
 /** Create `dest` (a .zip) from the single top-level folder inside `staging`. */
 function zipFolder(staging: string, dest: string): void {
@@ -41,6 +44,16 @@ function presenterDir(): string {
   if (app.isPackaged) return join(process.resourcesPath, 'tools/presenter')
   return resolve(app.getAppPath(), '../tools/presenter')
 }
+
+/** file:// URL of the built Presenter app (dev + packaged both load from dist). */
+function presenterEntryUrl(): string {
+  return pathToFileURL(join(presenterDir(), 'dist', 'index.html')).href
+}
+
+/** Read the Presenter tool manifest (toolbox.json). */
+function presenterManifest(): import('@openappstore/sdk').ToolManifest {
+  return JSON.parse(readFileSync(join(presenterDir(), 'toolbox.json'), 'utf8'))
+}
 function presentationsDir(): string {
   return join(app.getPath('userData'), 'presentations')
 }
@@ -57,32 +70,18 @@ const PDF_PAGE_W = 1280
 const PDF_PAGE_H = 720
 
 // ---- durable deck backup ----
-// User decks live in the (gitignored) source tree so Vite can compile them, so
-// they don't survive a repo move/clean or ship in CI builds. Mirror each to a
-// durable copy under userData and restore them into the source tree on startup.
+// User decks live directly in userData/presentations.
 
 function userDecksDir(): string {
   return join(app.getPath('userData'), 'presentations')
 }
-function safeReaddir(dir: string): string[] {
-  try {
-    return readdirSync(dir)
-  } catch {
-    return []
-  }
-}
-// Back up the deck CODE only. Skip read-in-place source material, attachments,
-// build output and VCS — that stuff can be huge and may contain symlinks (e.g.
-// a downloaded CLI) that make cpSync fail with EINVAL.
-const DECK_SKIP = /(^|\/)(node_modules|\.git|dist|attachments|source|__MACOSX)(\/|$)/
-const deckFilter = (s: string): boolean => !DECK_SKIP.test(s) && !s.endsWith('.sourcepath')
 
 // Reference material is meant to be read in place (--add-dir), never copied into
 // the deck. If the AI editor ignores that and copies a repo in anyway, these
-// trees bloat the Vite project (slow HMR) and break backups. After each turn we
-// delete any of them found inside the deck. `attachments` is intentionally NOT
-// here — it holds real images the deck imports.
-const DECK_JUNK = new Set(['node_modules', '.git', '.pnpm-store', 'source', 'dist', 'target', '__MACOSX'])
+// trees bloat the project and break exports. After each turn we delete any of
+// them found inside the deck. `attachments` is intentionally NOT here — it holds
+// real images the deck imports.
+const DECK_JUNK = new Set(['node_modules', '.git', '.pnpm-store', 'source', 'dist', 'target', '__MACOSX', '.build'])
 
 /** Remove any DECK_JUNK folders the editor created inside a deck (defense vs.
  *  the agent copying reference material in instead of reading it in place). */
@@ -129,8 +128,8 @@ export async function createPresentation(name: string): Promise<{ id: string }> 
 /** Remove a user presentation folder (only ids with the user prefix). */
 export async function deletePresentation(id: string): Promise<void> {
   if (!id.startsWith(USER_PREFIX)) throw new Error('refusing to delete a non-user presentation')
+  // presentationsDir() and userDecksDir() resolve to the same path (userData/presentations).
   await rm(join(presentationsDir(), id), { recursive: true, force: true })
-  await rm(join(userDecksDir(), id), { recursive: true, force: true }) // drop the backup too
 }
 
 /** Native folder picker; returns the chosen path or null. */
@@ -215,7 +214,10 @@ export async function exportPresentation(presId: string): Promise<string | null>
   await cp(presFolder, join(src, 'presentations', presId), {
     recursive: true,
     // Drop internal/heavy bits that aren't part of the shareable code project.
-    filter: (s) => !s.includes(`${presId}/attachments`) && !s.endsWith('.sourcepath'),
+    filter: (s) =>
+      !s.includes(`${presId}/attachments`) &&
+      !s.endsWith('.sourcepath') &&
+      !s.includes(`${presId}/.build`),
   })
 
   // Entry that mounts just this deck (navigable: arrow keys advance slides).
@@ -350,8 +352,7 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
  * borders fill solid and gradient-clipped titles leave ghost boxes. capturePage
  * uses the on-screen compositor, so the PDF matches the deck pixel-for-pixel.
  *
- * Dev-only: getPreviewUrl() needs the dev server (like the zip export and
- * thumbnails). Returns the saved path, or null if the user cancelled.
+ * Returns the saved path, or null if the user cancelled.
  */
 export async function exportPresentationPdf(presId: string): Promise<string | null> {
   if (!presId.startsWith(USER_PREFIX)) throw new Error('invalid presentation')
@@ -372,8 +373,7 @@ export async function exportPresentationPdf(presId: string): Promise<string | nu
   if (res.canceled || !res.filePath) return null
   const dest = res.filePath
 
-  // Throws if packaged (no dev server) — surfaced to the user as an error toast.
-  const base = await getPreviewUrl()
+  const m = presenterManifest()
   const win = new BrowserWindow({
     show: false,
     width: PDF_PAGE_W,
@@ -381,10 +381,24 @@ export async function exportPresentationPdf(presId: string): Promise<string | nu
     paintWhenInitiallyHidden: true,
     // Isolated, in-memory session: ExportDeck pre-sets slider state in
     // localStorage, and this keeps it from leaking into the live deck.
-    webPreferences: { offscreen: false, backgroundThrottling: false, partition: 'export-pdf' },
+    webPreferences: {
+      offscreen: false,
+      backgroundThrottling: false,
+      partition: 'export-pdf',
+      preload: toolPreloadPath(),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      additionalArguments: [
+        `--toolbox-id=${m.id}`,
+        `--toolbox-name=${m.name}`,
+        `--toolbox-version=${m.version}`,
+      ],
+    },
   })
+  registerToolView(win.webContents.id, m, 'builtin')
   try {
-    await win.loadURL(`${base}?export=${presId}`)
+    await win.loadURL(`${presenterEntryUrl()}?export=${presId}`)
     // Wait for webfonts (a fallback font reflows/overlaps), then a settle so slide
     // intro animations reach their final frame before we screenshot.
     await win.webContents.executeJavaScript('document.fonts.ready.then(() => true)')
@@ -437,11 +451,12 @@ export async function exportPresentationPdf(presId: string): Promise<string | nu
     writeFileSync(dest, pdf)
     return dest
   } finally {
+    unregisterToolView(win.webContents.id)
     win.destroy()
   }
 }
 
-const IMPORT_SKIP = /(^|\/)(node_modules|\.git|dist|attachments|__MACOSX)(\/|$)/
+const IMPORT_SKIP = /(^|\/)(node_modules|\.git|dist|\.build|attachments|__MACOSX)(\/|$)/
 
 /**
  * Older exported decks painted their letterbox with a GLOBAL rule in theme.css
@@ -653,16 +668,29 @@ function queueThumb<T>(fn: () => Promise<T>): Promise<T> {
  *  cache file path. Heavy — runs one at a time via queueThumb. */
 function renderThumbnail(presId: string): Promise<string> {
   return queueThumb(async () => {
-    const base = await getPreviewUrl()
+    const m = presenterManifest()
     const win = new BrowserWindow({
       show: false,
       width: 1280,
       height: 720,
       paintWhenInitiallyHidden: true,
-      webPreferences: { offscreen: false, backgroundThrottling: false },
+      webPreferences: {
+        offscreen: false,
+        backgroundThrottling: false,
+        preload: toolPreloadPath(),
+        sandbox: true,
+        contextIsolation: true,
+        nodeIntegration: false,
+        additionalArguments: [
+          `--toolbox-id=${m.id}`,
+          `--toolbox-name=${m.name}`,
+          `--toolbox-version=${m.version}`,
+        ],
+      },
     })
+    registerToolView(win.webContents.id, m, 'builtin')
     try {
-      await win.loadURL(`${base}?pres=${presId}`)
+      await win.loadURL(`${presenterEntryUrl()}?pres=${presId}`)
       // Let fonts load and the intro animation settle before capturing.
       await new Promise((r) => setTimeout(r, 1300))
       const img = await win.webContents.capturePage()
@@ -671,6 +699,7 @@ function renderThumbnail(presId: string): Promise<string> {
       writeFileSync(thumbFile(presId), jpg)
       return thumbFile(presId)
     } finally {
+      unregisterToolView(win.webContents.id)
       win.destroy()
     }
   })
@@ -701,8 +730,8 @@ export function stopChat(presId: string): void {
 }
 
 /**
- * Drive a Claude Code session to edit a presentation folder. Spawns `claude -p`
- * with cwd = the folder (confinement), streams parsed progress via `emit`, and
+ * Drive the configured AI provider to edit a presentation folder via `runAgent`.
+ * CWD is confined to the deck folder; streams parsed progress via `emit` and
  * resolves when the turn ends. Only Read/Edit/Write/Glob/Grep are allowed (no Bash).
  */
 export function sendChat(

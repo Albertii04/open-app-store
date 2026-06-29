@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { writeFileSync, rmSync } from 'node:fs'
+import { existsSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentRunOptions, AgentHandle, ProviderAdapter } from '../types.js'
 import type { ChatEvent } from '../../../shared/types.js'
@@ -61,16 +61,26 @@ export const opencodeAdapter: ProviderAdapter = {
   versionArgs: ['--version'],
   run(bin, o, emit): AgentHandle {
     let cfgPath: string | null = null
+    let createdConfig = false
     if (!o.allowEdits) {
-      cfgPath = join(o.cwd, 'opencode.json')
-      try {
-        writeFileSync(cfgPath, JSON.stringify(READONLY_CONFIG), 'utf8')
-      } catch {
-        cfgPath = null
+      const candidate = join(o.cwd, 'opencode.json')
+      // Only write (and later remove) the config if it doesn't already exist.
+      // Never clobber a user's own opencode.json.
+      if (!existsSync(candidate)) {
+        cfgPath = candidate
+        try {
+          writeFileSync(cfgPath, JSON.stringify(READONLY_CONFIG), 'utf8')
+          createdConfig = true
+        } catch {
+          cfgPath = null
+        }
       }
     }
+    let cleaned = false
     const cleanup = (): void => {
-      if (cfgPath) {
+      if (cleaned) return
+      cleaned = true
+      if (createdConfig && cfgPath) {
         try {
           rmSync(cfgPath)
         } catch {
@@ -90,7 +100,10 @@ export const opencodeAdapter: ProviderAdapter = {
         if (line) for (const ev of parse(line)) emit(ev)
       }
     })
-    child.on('error', (e) => emit({ kind: 'error', text: e.message }))
+    child.on('error', (e) => {
+      cleanup()
+      emit({ kind: 'error', text: e.message })
+    })
     child.on('exit', (_c, signal) => {
       cleanup()
       if (signal) emit({ kind: 'error', text: 'Detenido.' })

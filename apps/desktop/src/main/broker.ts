@@ -7,7 +7,6 @@ import {
   hasCapability,
   netAllowlist,
   type CapabilityName,
-  type ToolManifest,
 } from '@openappstore/sdk'
 import { toolStorage } from './storage.js'
 import {
@@ -25,31 +24,22 @@ import {
   stopChat,
   compiledDeckSource,
 } from './authoring.js'
+import {
+  registerToolView,
+  unregisterToolView,
+  lookupToolView,
+} from './tool-registry.js'
 
-type ToolSource = 'builtin' | 'installed'
+export { registerToolView, unregisterToolView }
 
 /**
- * The capability broker. Maps each tool view's webContents to its manifest, and
- * authorizes every IPC call against that manifest before doing anything native.
- * A call from a tool without the declared capability rejects with
- * CAPABILITY_DENIED — this is the security spine of the whole shell.
+ * The capability broker. Authorizes every IPC call against the manifest
+ * registered for the calling webContents. A call from an unregistered or
+ * under-privileged view rejects with CAPABILITY_DENIED — this is the security
+ * spine of the whole shell.
  */
-const byWc = new Map<number, { manifest: ToolManifest; source: ToolSource }>()
-
-export function registerToolView(
-  webContentsId: number,
-  manifest: ToolManifest,
-  source: ToolSource,
-): void {
-  byWc.set(webContentsId, { manifest, source })
-}
-
-export function unregisterToolView(webContentsId: number): void {
-  byWc.delete(webContentsId)
-}
-
-function authorize(webContentsId: number, cap: CapabilityName): ToolManifest {
-  const entry = byWc.get(webContentsId)
+function authorize(webContentsId: number, cap: CapabilityName): import('@openappstore/sdk').ToolManifest {
+  const entry = lookupToolView(webContentsId)
   if (!entry) throw new Error(`${CAPABILITY_DENIED}: unknown caller`)
   if (!hasCapability(entry.manifest, cap))
     throw new Error(`${CAPABILITY_DENIED}: tool "${entry.manifest.id}" did not declare "${cap}"`)

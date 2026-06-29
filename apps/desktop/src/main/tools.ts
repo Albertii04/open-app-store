@@ -4,12 +4,12 @@ import { join } from 'node:path'
 import { loadToolsFromDir, type LoadedTool } from '@openappstore/tool-host'
 import type { TabsState, ToolStatus, ToolSummary } from '../shared/types.js'
 import { builtinToolsDir, installedToolsDir } from './paths.js'
-import { registerToolView, unregisterToolView } from './broker.js'
+import { registerToolView, unregisterToolView } from './tool-registry.js'
 
 /** Height of the persistent tab bar; tool views sit below it, full width. */
 const TABBAR_H = 40
 
-function toolPreloadPath(): string {
+export function toolPreloadPath(): string {
   return join(app.getAppPath(), 'out/preload/tool.js')
 }
 

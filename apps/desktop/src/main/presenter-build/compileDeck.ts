@@ -8,6 +8,9 @@ export type CompileResult =
   | { ok: true; file: string; externals: string[] }
   | { ok: false; error: string }
 
+/** Modules the host provides at runtime. Any bare import not in this set is an error. */
+const HOST_MODULES = new Set(['vue', 'gsap', '@vueuse/core', 'presenter-engine'])
+
 /** Engine-path regex: matches relative paths that navigate to an "engine" segment */
 const ENGINE_RE = /(^|\/)engine($|\/)/
 
@@ -199,6 +202,13 @@ export async function compileDeckAt(deckDir: string): Promise<CompileResult> {
       plugins: [makeVuePlugin(), makeCssPlugin(), makeExternalizerPlugin(externals)],
       logLevel: 'silent',
     })
+
+    const unknown = Array.from(externals).filter((e) => !HOST_MODULES.has(e))
+    if (unknown.length)
+      return {
+        ok: false,
+        error: `El deck importa módulos no disponibles: ${unknown.join(', ')}. Solo se permiten: ${[...HOST_MODULES].join(', ')}.`,
+      }
 
     return { ok: true, file: outFile, externals: Array.from(externals) }
   } catch (err: unknown) {

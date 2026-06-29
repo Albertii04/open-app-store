@@ -39,10 +39,12 @@ function mountDeck(presentation: Presentation): void {
 }
 
 // Routes:
-//   ?preview=<id> → live HMR preview (iframe of the dev server)
-//   ?edit=<id>    → AI chat editor (Claude Code) + live preview
-//   ?pres=<id>    → play a runtime-compiled presentation
+//   ?preview=<id> → live preview (LivePreview component)
+//   ?edit=<id>    → AI chat editor + live preview
+//   ?pres=<id>    → play a runtime-compiled deck (compiled via esbuild at load time)
 //   ?p            → presenter console (with ?pres)
+//   ?export=<id>  → full-page export layout for PDF rendering
+//   ?solo=<id>&n  → single slide (used in presenter console preview iframes)
 //   otherwise     → Home dashboard
 async function boot(): Promise<void> {
   installHostModules()

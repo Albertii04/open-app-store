@@ -134,8 +134,8 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   migrateUserData() // restore tool-storage from a prior app name (rename-safe)
-  restoreUserDecks() // recover user decks from the userData backup into the source tree
-  backupUserDecks() // and mirror the current decks back out
+  restoreUserDecks() // ensure userData/presentations directory exists
+  backupUserDecks() // no-op: decks already live in userData directly
   installBroker()
   installShellIpc()
   await manager.load()

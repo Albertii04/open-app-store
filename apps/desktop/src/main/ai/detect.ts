@@ -12,6 +12,9 @@ function isExec(p: string): boolean {
   }
 }
 
+// Cache the npm global prefix so candidateDirs() doesn't shell out on every AI turn.
+let _npmGlobalPrefix: string | undefined
+
 /** Directories an installed agent CLI is commonly found in (macOS/Linux). */
 export function candidateDirs(): string[] {
   const dirs = [
@@ -22,12 +25,14 @@ export function candidateDirs(): string[] {
     join(homedir(), '.opencode/bin'),
   ]
   for (const d of (process.env.PATH ?? '').split(':')) if (d) dirs.push(d)
-  try {
-    const prefix = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8' }).trim()
-    if (prefix) dirs.push(join(prefix, 'bin'))
-  } catch {
-    /* npm not present — ignore */
+  if (_npmGlobalPrefix === undefined) {
+    try {
+      _npmGlobalPrefix = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8' }).trim()
+    } catch {
+      _npmGlobalPrefix = '' // npm not present
+    }
   }
+  if (_npmGlobalPrefix) dirs.push(join(_npmGlobalPrefix, 'bin'))
   return [...new Set(dirs)]
 }
 
