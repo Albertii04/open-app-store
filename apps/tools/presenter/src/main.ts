@@ -1,3 +1,4 @@
+import { installHostModules } from './runtime/hostModules'
 import { createApp, type Component } from 'vue'
 import './engine/engine.css'
 import { AudienceDeck, PresenterConsole, ExportDeck, SoloDeck } from './engine'
@@ -31,6 +32,7 @@ function mountDeck(presentation: Presentation): void {
 //   ?p            → presenter console (with ?pres)
 //   otherwise     → Home dashboard
 function boot(): void {
+  installHostModules()
   const previewId = params.get('preview')
   if (previewId) {
     document.title = 'Vista en vivo'
