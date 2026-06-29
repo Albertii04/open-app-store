@@ -13,6 +13,7 @@ import {
   Tag,
   Boxes,
   PackageOpen,
+  Settings,
 } from 'lucide-vue-next'
 import type { ToolManifest } from '@openappstore/sdk'
 import type {
@@ -26,6 +27,7 @@ import type {
 import type { StoreApp } from './store-types'
 import AppCard from './components/AppCard.vue'
 import AppDetail from './components/AppDetail.vue'
+import SettingsModal from './components/SettingsModal.vue'
 
 const isMac = navigator.platform.toLowerCase().includes('mac')
 
@@ -43,6 +45,7 @@ const progress = ref<Record<string, InstallProgress>>({})
 const favs = ref<Set<string>>(new Set())
 const update = ref<UpdateStatus | null>(null)
 const appVersion = ref('')
+const settingsOpen = ref(false)
 
 const updateBadge = computed(() => {
   switch (update.value?.phase) {
@@ -299,6 +302,14 @@ onMounted(() => {
       >
         <RefreshCw class="size-4" />
       </button>
+
+      <button
+        class="no-drag grid size-7 place-items-center rounded-md text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
+        title="Ajustes de IA"
+        @click="settingsOpen = true"
+      >
+        <Settings class="size-4" />
+      </button>
     </div>
 
     <!-- body -->
@@ -455,6 +466,9 @@ onMounted(() => {
         @toggle-fav="toggleFav(selected!)"
       />
     </Transition>
+
+    <!-- AI settings modal -->
+    <SettingsModal :open="settingsOpen" @close="settingsOpen = false" />
 
     <!-- auto-update toast -->
     <Transition name="fade">
