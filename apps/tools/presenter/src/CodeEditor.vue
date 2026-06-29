@@ -245,15 +245,14 @@ onMounted(async () => {
       busy.value = false
       applying.value = false
       persist()
+      // Reload the preview iframe so it picks up the latest edits.
+      const base = location.href.split('?')[0].split('#')[0]
+      previewUrl.value = `${base}?pres=${props.presId}&nav=1&t=${Date.now()}`
     }
     scroll()
   })
-  try {
-    const base = await authoring.previewUrl()
-    previewUrl.value = `${base}?pres=${props.presId}&nav=1`
-  } catch {
-    /* preview may be unavailable */
-  }
+  const base = location.href.split('?')[0].split('#')[0]
+  previewUrl.value = `${base}?pres=${props.presId}&nav=1`
 
   // Freshly created from onboarding/import: analyse the brief in a fresh chat.
   const pending = await takePendingPrompt(props.presId)
