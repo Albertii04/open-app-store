@@ -781,10 +781,17 @@ export function sendChat(
         readDirs,
         allowEdits,
         model: settings.providers[active]?.model,
-        resumeSessionId: prev ?? null,
+        // Sessions are provider-specific: a `<provider>:<id>` tag is stored so we
+        // only resume when the SAME provider is active. Resuming claude with a
+        // codex session id (or vice-versa) makes the CLI exit with an error.
+        resumeSessionId:
+          prev && prev.startsWith(`${active}:`) ? prev.slice(active.length + 1) : null,
       },
       settings.providers[active]?.binPath,
       (ev) => {
+        // Tag the session id with the active provider so the renderer stores it
+        // tagged and a later turn only resumes within the same provider.
+        if (ev.kind === 'done' && ev.sessionId) ev = { ...ev, sessionId: `${active}:${ev.sessionId}` }
         emit(ev)
         if (ev.kind === 'done') {
           // The deck likely changed — prune copied-in junk, then refresh the
