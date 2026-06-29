@@ -47,6 +47,16 @@ export function candidateDirs(): string[] {
 }
 
 /**
+ * Environment for spawning an agent CLI. A Finder/Dock-launched GUI app inherits
+ * a minimal PATH, which breaks the CLIs' own hooks/subprocesses (they shell out
+ * to node, git, etc.) and can hang the turn. Give the child a rich PATH built
+ * from the same dirs we search for binaries, so those subprocesses resolve.
+ */
+export function agentEnv(): NodeJS.ProcessEnv {
+  return { ...process.env, PATH: candidateDirs().join(':') }
+}
+
+/**
  * Resolve a provider binary. `override` (user-set absolute path) wins if it
  * exists + is executable; otherwise scan `dirs` (defaults to candidateDirs()).
  */

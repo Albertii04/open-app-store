@@ -3,6 +3,7 @@ import { existsSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentRunOptions, AgentHandle, ProviderAdapter } from '../types.js'
 import type { ChatEvent } from '../../../shared/types.js'
+import { agentEnv } from '../detect.js'
 
 export function buildOpencodeArgs(o: AgentRunOptions): string[] {
   const args = ['run', '--format', 'json', '--dir', o.cwd]
@@ -88,7 +89,7 @@ export const opencodeAdapter: ProviderAdapter = {
         }
       }
     }
-    const child = spawn(bin, buildOpencodeArgs(o), { cwd: o.cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(bin, buildOpencodeArgs(o), { cwd: o.cwd, env: agentEnv(), stdio: ['ignore', 'pipe', 'pipe'] })
     child.stderr?.on('data', () => {})
     const parse = makeOpencodeParser()
     let buf = ''

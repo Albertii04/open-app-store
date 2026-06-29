@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import type { AgentRunOptions, AgentHandle, ProviderAdapter } from '../types.js'
 import type { ChatEvent } from '../../../shared/types.js'
+import { agentEnv } from '../detect.js'
 
 export function buildCodexArgs(o: AgentRunOptions): string[] {
   const args = ['exec', '--json']
@@ -58,7 +59,7 @@ export const codexAdapter: ProviderAdapter = {
   supportsExternalReadDirs: false,
   versionArgs: ['--version'],
   run(bin, o, emit): AgentHandle {
-    const child = spawn(bin, buildCodexArgs(o), { cwd: o.cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(bin, buildCodexArgs(o), { cwd: o.cwd, env: agentEnv(), stdio: ['ignore', 'pipe', 'pipe'] })
     // codex logs verbosely to stderr; drain it so its pipe buffer can't fill and
     // deadlock the child. (Real errors also arrive as JSON on stdout.)
     child.stderr?.on('data', () => {})

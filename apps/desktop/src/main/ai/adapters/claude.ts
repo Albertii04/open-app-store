@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import type { AgentRunOptions, AgentHandle, ProviderAdapter } from '../types.js'
 import type { ChatEvent } from '../../../shared/types.js'
+import { agentEnv } from '../detect.js'
 
 export function buildClaudeArgs(o: AgentRunOptions): string[] {
   const args = ['-p', '--output-format', 'stream-json', '--verbose']
@@ -48,7 +49,7 @@ export const claudeAdapter: ProviderAdapter = {
   supportsExternalReadDirs: true,
   versionArgs: ['--version'],
   run(bin, o, emit): AgentHandle {
-    const child = spawn(bin, buildClaudeArgs(o), { cwd: o.cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(bin, buildClaudeArgs(o), { cwd: o.cwd, env: agentEnv(), stdio: ['ignore', 'pipe', 'pipe'] })
     child.stderr?.on('data', () => {})
     let buf = ''
     child.stdout.on('data', (chunk: Buffer) => {
