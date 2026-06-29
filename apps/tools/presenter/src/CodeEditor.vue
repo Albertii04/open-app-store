@@ -63,8 +63,9 @@ const busy = ref(false)
 // True only while Claude is actually writing files (not merely thinking/chatting),
 // so the viewer overlay shows on real edits — plan/chat turns leave it usable.
 const applying = ref(false)
-// Tool names that mutate the deck's files.
-const EDIT_TOOLS = /^(Write|Edit|MultiEdit|NotebookEdit)\b/
+// Tool labels that mutate the deck's files, across providers (claude: "Edit ·",
+// "Write ·"; codex: "edit ·"; opencode: "edit"/"write"). Case-insensitive.
+const EDIT_TOOLS = /^(write|edit|multiedit|notebookedit|patch|apply_patch)\b/i
 const attachments = ref<Attachment[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 const dragging = ref(false)
