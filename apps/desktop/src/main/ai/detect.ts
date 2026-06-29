@@ -1,4 +1,4 @@
-import { existsSync, accessSync, constants } from 'node:fs'
+import { existsSync, accessSync, constants, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { execFileSync } from 'node:child_process'
@@ -25,6 +25,16 @@ export function candidateDirs(): string[] {
     join(homedir(), '.opencode/bin'),
   ]
   for (const d of (process.env.PATH ?? '').split(':')) if (d) dirs.push(d)
+  // nvm installs node (and global npm bins like claude/codex/opencode) under
+  // ~/.nvm/versions/node/<ver>/bin — not on a GUI app's PATH. Scan every version.
+  try {
+    const nvmRoot = join(homedir(), '.nvm/versions/node')
+    for (const ver of readdirSync(nvmRoot)) dirs.push(join(nvmRoot, ver, 'bin'))
+  } catch {
+    /* no nvm — ignore */
+  }
+  // fnm / volta common locations.
+  dirs.push(join(homedir(), '.volta/bin'))
   if (_npmGlobalPrefix === undefined) {
     try {
       _npmGlobalPrefix = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8' }).trim()
