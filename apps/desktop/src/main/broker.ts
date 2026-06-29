@@ -8,6 +8,8 @@ import {
   netAllowlist,
   type CapabilityName,
 } from '@openappstore/sdk'
+import { getAiSettings } from './ai/settings.js'
+import { listModels } from './ai/models.js'
 import { toolStorage } from './storage.js'
 import {
   setSourcePath,
@@ -162,7 +164,7 @@ export function installBroker(): void {
   })
   ipcMain.handle(
     IPC.authoringChat,
-    (e, presId: string, message: string, allowEdits?: boolean, resumeSessionId?: string | null) => {
+    (e, presId: string, message: string, allowEdits?: boolean, resumeSessionId?: string | null, provider?: string, model?: string) => {
       authorize(e.sender.id, 'authoring')
       return sendChat(
         presId,
@@ -172,9 +174,20 @@ export function installBroker(): void {
         },
         allowEdits ?? true,
         resumeSessionId,
+        provider,
+        model,
       )
     },
   )
+  ipcMain.handle(IPC.authoringAiGet, (e) => {
+    authorize(e.sender.id, 'authoring')
+    return getAiSettings()
+  })
+  ipcMain.handle(IPC.authoringAiModels, (e, provider: string) => {
+    authorize(e.sender.id, 'authoring')
+    const pid = provider as import('../shared/ai-types.js').ProviderId
+    return listModels(pid, getAiSettings().providers[pid]?.binPath)
+  })
   ipcMain.handle(IPC.authoringStop, (e, presId: string) => {
     authorize(e.sender.id, 'authoring')
     stopChat(presId)

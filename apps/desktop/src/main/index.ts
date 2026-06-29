@@ -17,6 +17,7 @@ import { initAutoUpdater, quitAndInstallUpdate, checkForUpdatesNow } from './upd
 import { getAiSettings, setAiSettings } from './ai/settings.js'
 import { detectBinary } from './ai/detect.js'
 import { getAdapter } from './ai/registry.js'
+import { listModels } from './ai/models.js'
 import type { ToolManifest } from '@openappstore/sdk'
 import type { ProviderId } from '../shared/ai-types.js'
 
@@ -110,6 +111,9 @@ function installShellIpc(): void {
   ipcMain.handle('shell:aiSet', (_e, patch) => setAiSettings(patch))
   ipcMain.handle('shell:aiDetect', (_e, provider: ProviderId) =>
     detectBinary(getAdapter(provider).binaryNames, getAiSettings().providers[provider]?.binPath),
+  )
+  ipcMain.handle('shell:aiModels', (_e, provider: ProviderId) =>
+    listModels(provider, getAiSettings().providers[provider]?.binPath),
   )
   ipcMain.handle('shell:aiTest', (_e, provider: ProviderId) => {
     const adapter = getAdapter(provider)

@@ -740,6 +740,8 @@ export function sendChat(
   emit: (e: ChatEvent) => void,
   allowEdits = true,
   resumeSessionId?: string | null,
+  providerOverride?: string,
+  modelOverride?: string,
 ): Promise<void> {
   return new Promise((resolveP) => {
     const folder = join(presentationsDir(), presId)
@@ -770,7 +772,8 @@ export function sendChat(
     }
 
     const settings = getAiSettings()
-    const active = settings.active
+    const active = (providerOverride as typeof settings.active) || settings.active
+    const model = modelOverride ?? settings.providers[active]?.model
     const readDirs = [blocks, userBlocks, source].filter((d): d is string => !!d)
 
     const handle = runAgent(
@@ -780,7 +783,7 @@ export function sendChat(
         message: prompt,
         readDirs,
         allowEdits,
-        model: settings.providers[active]?.model,
+        model,
         // Sessions are provider-specific: a `<provider>:<id>` tag is stored so we
         // only resume when the SAME provider is active. Resuming claude with a
         // codex session id (or vice-versa) makes the CLI exit with an error.

@@ -123,6 +123,7 @@ export interface ShellApi {
   aiSet(patch: AiSettingsPatch): Promise<AiSettings>
   aiDetect(provider: string): Promise<string | null>
   aiTest(provider: string): Promise<AiTestResult>
+  aiModels(provider: string): Promise<string[]>
 }
 
 declare global {

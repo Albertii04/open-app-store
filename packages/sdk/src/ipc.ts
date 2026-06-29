@@ -30,6 +30,8 @@ export const IPC = {
   authoringImport: 'toolbox:authoring.import',
   authoringThumbnail: 'toolbox:authoring.thumbnail',
   authoringCompiledDeck: 'toolbox:authoring.compiledDeck',
+  authoringAiGet: 'toolbox:authoring.aiGet',
+  authoringAiModels: 'toolbox:authoring.aiModels',
 } as const;
 
 /** Event channel: main → tool, streaming AI editor chat progress. */

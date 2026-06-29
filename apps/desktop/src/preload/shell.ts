@@ -46,6 +46,7 @@ const api: ShellApi = {
   aiSet: (patch) => ipcRenderer.invoke('shell:aiSet', patch),
   aiDetect: (provider) => ipcRenderer.invoke('shell:aiDetect', provider),
   aiTest: (provider) => ipcRenderer.invoke('shell:aiTest', provider),
+  aiModels: (provider) => ipcRenderer.invoke('shell:aiModels', provider),
 }
 
 contextBridge.exposeInMainWorld('shellApi', api)
