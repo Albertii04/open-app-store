@@ -31,8 +31,12 @@ export function streamAgent(
   }
 
   const child = spawn(bin, args, { cwd, env: agentEnv(), stdio: ['ignore', 'pipe', 'pipe'] })
-  // Drain stderr so a chatty CLI can't fill the pipe buffer and deadlock.
-  child.stderr?.on('data', () => {})
+  // Drain stderr so a chatty CLI can't fill the pipe buffer and deadlock, but
+  // keep the tail so a non-zero exit can report WHY (instead of a bare code).
+  let errTail = ''
+  child.stderr?.on('data', (c: Buffer) => {
+    errTail = (errTail + c.toString()).slice(-2000)
+  })
 
   let buf = ''
   child.stdout.on('data', (chunk: Buffer) => {
@@ -54,7 +58,16 @@ export function streamAgent(
     if (terminated) return
     if (signal) out({ kind: 'error', text: 'Detenido.' })
     else if (code === 0) out({ kind: 'done', text: '' })
-    else out({ kind: 'error', text: `El proceso terminó con código ${code ?? '?'}.` })
+    else {
+      // Surface the CLI's own stderr (the real reason) instead of a bare code.
+      const reason = errTail.trim().split('\n').filter(Boolean).slice(-6).join('\n')
+      out({
+        kind: 'error',
+        text: reason
+          ? `El proceso terminó con código ${code ?? '?'}:\n${reason}`
+          : `El proceso terminó con código ${code ?? '?'}.`,
+      })
+    }
   })
 
   return { stop: () => child.kill() }
