@@ -2,7 +2,10 @@ import type { ChatEvent } from '../shared/types.js'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { cp, rm, writeFile } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
+import { runAgent } from './ai/run.js'
+import { getAiSettings } from './ai/settings.js'
+import type { AgentHandle } from './ai/types.js'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { app, BrowserWindow, dialog } from 'electron'
 import AdmZip from 'adm-zip'
@@ -722,11 +725,11 @@ export async function getThumbnail(presId: string, force = false): Promise<strin
 // ---- AI editor (Claude Code) ----
 
 // Running chat process per presentation, so it can be stopped.
-const chatProc = new Map<string, ChildProcess>()
+const chatProc = new Map<string, AgentHandle>()
 
 /** Stop the running AI editor turn for a presentation. */
 export function stopChat(presId: string): void {
-  chatProc.get(presId)?.kill()
+  chatProc.get(presId)?.stop()
   chatProc.delete(presId)
 }
 
@@ -770,85 +773,41 @@ export function sendChat(
         : `Estás PLANIFICANDO una presentación de código (Vue 3 + GSAP) sobre el engine de Presenter (cwd). ${sourceLine} ${libsLine} Tu tarea ahora: ANALIZA el material y PROPÓN un plan de slides concreto — para cada slide, di qué muestra y qué bloque de la librería usar (o si hace falta uno nuevo), y el estilo/tema. NO edites archivos todavía: solo analiza y propón, en texto. El usuario revisará y, cuando dé a "Implementar", lo construyes. Brief del usuario: ${message}`
     }
 
-    const tools = allowEdits
-      ? 'Read,Edit,Write,Glob,Grep,WebFetch'
-      : 'Read,Glob,Grep,WebFetch'
+    const settings = getAiSettings()
+    const active = settings.active
+    const readDirs = [blocks, userBlocks, source].filter((d): d is string => !!d)
 
-    const args = [
-      '-p',
-      prompt,
-      '--output-format',
-      'stream-json',
-      '--verbose',
-      '--add-dir',
-      blocks,
-      '--add-dir',
-      userBlocks,
-    ]
-    if (source) args.push('--add-dir', source)
-    args.push('--allowedTools', tools, '--permission-mode', 'acceptEdits')
-    if (prev) args.push('--resume', prev)
-
-    // Ensure ~/.local/bin (where `claude` lives) is on PATH.
-    const env = { ...process.env, PATH: `${homedir()}/.local/bin:${process.env.PATH ?? ''}` }
-    const child = spawn('claude', args, { cwd: folder, env, stdio: ['ignore', 'pipe', 'pipe'] })
-    chatProc.set(presId, child)
-
-    let buf = ''
-    child.stdout.on('data', (chunk: Buffer) => {
-      buf += chunk.toString()
-      let nl: number
-      while ((nl = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, nl).trim()
-        buf = buf.slice(nl + 1)
-        if (!line) continue
-        let msg: Record<string, unknown>
-        try {
-          msg = JSON.parse(line)
-        } catch {
-          continue
+    const handle = runAgent(
+      active,
+      {
+        cwd: folder,
+        message: prompt,
+        readDirs,
+        allowEdits,
+        model: settings.providers[active]?.model,
+        resumeSessionId: prev ?? null,
+      },
+      settings.providers[active]?.binPath,
+      (ev) => {
+        emit(ev)
+        if (ev.kind === 'done') {
+          // The deck likely changed — prune copied-in junk, then refresh the
+          // cover thumbnail + back up.
+          void pruneDeckJunk(presId)
+            .catch(() => {})
+            .finally(() => {
+              void renderThumbnail(presId).catch(() => {})
+              backupUserDecks()
+            })
+          chatProc.delete(presId)
+          resolveP()
+        } else if (ev.kind === 'error') {
+          chatProc.delete(presId)
+          resolveP()
         }
-        if (msg.type === 'assistant') {
-          const content = (msg.message as { content?: unknown[] })?.content ?? []
-          for (const b of content as Array<Record<string, unknown>>) {
-            if (b.type === 'text' && typeof b.text === 'string' && b.text.trim())
-              emit({ kind: 'assistant', text: b.text })
-            else if (b.type === 'tool_use') {
-              const file = (b.input as { file_path?: string })?.file_path
-              emit({ kind: 'tool', text: `${b.name}${file ? ' · ' + file.split('/').pop() : ''}` })
-            }
-          }
-        } else if (msg.type === 'result') {
-          emit({
-            kind: msg.is_error ? 'error' : 'done',
-            text: String(msg.result ?? ''),
-            sessionId: typeof msg.session_id === 'string' ? msg.session_id : undefined,
-          })
-          // The deck likely changed — refresh its cover thumbnail + back up.
-          if (!msg.is_error) {
-            // Prune first so the thumbnail render + backup never see copied-in
-            // reference junk (and Vite stops watching it).
-            void pruneDeckJunk(presId)
-              .catch(() => {})
-              .finally(() => {
-                void renderThumbnail(presId).catch(() => {})
-                backupUserDecks()
-              })
-          }
-        }
-        // everything else (system/hook/rate_limit/init) is noise — ignored
-      }
-    })
-    child.on('error', (e) => {
-      chatProc.delete(presId)
-      emit({ kind: 'error', text: e.message })
-      resolveP()
-    })
-    child.on('exit', (code, signal) => {
-      chatProc.delete(presId)
-      if (signal) emit({ kind: 'error', text: 'Detenido.' })
-      resolveP()
-    })
+      },
+    )
+    chatProc.set(presId, handle)
   })
 }
 
