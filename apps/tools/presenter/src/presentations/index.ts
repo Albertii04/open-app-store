@@ -1,19 +1,21 @@
 import type { Presentation } from '../engine/types'
 
+type ToolboxAuthoring = { authoring?: { compiledDeck(id: string): Promise<string> } }
+
 /**
- * Presentations are folders: any `presentations/<id>/index.ts` that exports a
- * Presentation (default export, or a named `presentation`) is auto-discovered.
- * Drop in a new folder and it shows up — no manual registration.
+ * Load a deck by compiling it in the shell (main process) and importing the
+ * returned ESM source as a Blob. Bare imports (vue/gsap/@vueuse/core/
+ * presenter-engine) resolve via the import map installed by installHostModules().
  */
-const modules = import.meta.glob<{ default?: Presentation; presentation?: Presentation }>(
-  './*/index.ts',
-  { eager: true },
-)
-
-export const presentations: Presentation[] = Object.values(modules)
-  .map((m) => m.default ?? m.presentation)
-  .filter((p): p is Presentation => !!p)
-
-export function getPresentation(id: string): Presentation | undefined {
-  return presentations.find((p) => p.meta.id === id)
+export async function loadPresentation(id: string): Promise<Presentation | undefined> {
+  const tb = (window as unknown as { toolbox?: ToolboxAuthoring }).toolbox
+  if (!tb?.authoring?.compiledDeck) return undefined
+  const code = await tb.authoring.compiledDeck(id)
+  const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
+  try {
+    const mod = (await import(/* @vite-ignore */ url)) as { default?: Presentation; presentation?: Presentation }
+    return mod.default ?? mod.presentation
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }

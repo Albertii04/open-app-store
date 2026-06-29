@@ -52,6 +52,7 @@ const api: ToolboxApi = {
     exportPresentationPdf: (presId) => ipcRenderer.invoke(IPC.authoringExportPdf, presId),
     importPresentation: () => ipcRenderer.invoke(IPC.authoringImport),
     thumbnail: (presId, force) => ipcRenderer.invoke(IPC.authoringThumbnail, presId, force),
+    compiledDeck: (presId) => ipcRenderer.invoke(IPC.authoringCompiledDeck, presId),
     sendChat: (presId, message, allowEdits, resumeSessionId) =>
       ipcRenderer.invoke(IPC.authoringChat, presId, message, allowEdits, resumeSessionId),
     stopChat: (presId) => ipcRenderer.invoke(IPC.authoringStop, presId),

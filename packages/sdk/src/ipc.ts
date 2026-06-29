@@ -29,6 +29,7 @@ export const IPC = {
   authoringExportPdf: 'toolbox:authoring.exportPdf',
   authoringImport: 'toolbox:authoring.import',
   authoringThumbnail: 'toolbox:authoring.thumbnail',
+  authoringCompiledDeck: 'toolbox:authoring.compiledDeck',
 } as const;
 
 /** Event channel: main → tool, streaming AI editor chat progress. */

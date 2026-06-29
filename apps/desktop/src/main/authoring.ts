@@ -1,6 +1,7 @@
 import type { ChatEvent } from '../shared/types.js'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { compileDeck } from './presenter-build/compileDeck.js'
 import { cp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { runAgent } from './ai/run.js'
@@ -834,6 +835,13 @@ export function getPreviewUrl(): Promise<string> {
     setTimeout(() => fail(new Error('dev server start timeout')), 25000)
   })
   return starting
+}
+
+/** Compile the deck and return its bundled ESM source (loaded as a Blob in the renderer). */
+export async function compiledDeckSource(presId: string): Promise<string> {
+  const r = await compileDeck(presId)
+  if (!r.ok) throw new Error(r.error)
+  return readFileSync(r.file, 'utf8')
 }
 
 export function stopAuthoring(): void {

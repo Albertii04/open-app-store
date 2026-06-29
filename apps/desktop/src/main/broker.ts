@@ -23,6 +23,7 @@ import {
   pickFolder,
   sendChat,
   stopChat,
+  compiledDeckSource,
 } from './authoring.js'
 
 type ToolSource = 'builtin' | 'installed'
@@ -218,5 +219,9 @@ export function installBroker(): void {
   ipcMain.handle(IPC.authoringThumbnail, (e, presId: string, force?: boolean) => {
     authorize(e.sender.id, 'authoring')
     return getThumbnail(presId, force)
+  })
+  ipcMain.handle(IPC.authoringCompiledDeck, (e, presId: string) => {
+    authorize(e.sender.id, 'authoring')
+    return compiledDeckSource(presId)
   })
 }
