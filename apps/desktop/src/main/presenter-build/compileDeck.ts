@@ -1,8 +1,37 @@
 import { build, type Plugin } from 'esbuild'
 import { parse as parseSfc, compileScript, compileTemplate, compileStyle } from '@vue/compiler-sfc'
-import { readFileSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { app } from 'electron'
+
+/**
+ * Point esbuild at its UNPACKED native binary in packaged builds. esbuild's JS
+ * (loaded from app.asar) computes the binary path inside the asar; spawning it
+ * fails with ENOTDIR because asar is a file, not a directory. The binary is
+ * unpacked to app.asar.unpacked — set ESBUILD_BINARY_PATH so esbuild spawns it
+ * from there. No-op in dev / tests (app.isPackaged falsy).
+ */
+let esbuildPathChecked = false
+function ensureEsbuildBinary(): void {
+  if (esbuildPathChecked) return
+  esbuildPathChecked = true
+  try {
+    if (!app?.isPackaged) return
+    const unpacked = app.getAppPath().replace(/app\.asar$/, 'app.asar.unpacked')
+    const bin = join(
+      unpacked,
+      'node_modules',
+      '@esbuild',
+      `${process.platform}-${process.arch}`,
+      'bin',
+      'esbuild',
+    )
+    if (existsSync(bin)) process.env.ESBUILD_BINARY_PATH = bin
+  } catch {
+    /* ignore — fall back to esbuild's default resolution */
+  }
+}
 
 export type CompileResult =
   | { ok: true; file: string; externals: string[] }
@@ -178,6 +207,7 @@ function makeVuePlugin(): Plugin {
 }
 
 export async function compileDeckAt(deckDir: string): Promise<CompileResult> {
+  ensureEsbuildBinary()
   const entry = join(deckDir, 'index.ts')
   const outDir = join(deckDir, '.build')
   const outFile = join(outDir, 'deck.js')
