@@ -46,10 +46,12 @@ let url: string | null = null
 let starting: Promise<string> | null = null
 
 function presenterDir(): string {
+  // Source assets the deck compiler + authoring need (template, blocks, engine).
+  if (app.isPackaged) return join(process.resourcesPath, 'tools/presenter')
   return resolve(app.getAppPath(), '../tools/presenter')
 }
 function presentationsDir(): string {
-  return join(presenterDir(), 'src/presentations')
+  return join(app.getPath('userData'), 'presentations')
 }
 function templateDir(): string {
   // Outside src/ so it isn't type-checked or globbed in place; copied into
@@ -111,42 +113,16 @@ async function pruneDeckJunk(presId: string): Promise<void> {
   await walk(join(presentationsDir(), presId))
 }
 
-/** Restore user decks from the userData backup into the source tree (dev only). */
+/** Ensure the userData presentations directory exists. */
 export function restoreUserDecks(): void {
-  if (app.isPackaged) return // packaged decks are baked into dist; source tree is read-only
-  const have = new Set(safeReaddir(presentationsDir()))
-  for (const name of safeReaddir(userDecksDir())) {
-    if (!name.startsWith(USER_PREFIX) || have.has(name)) continue
-    try {
-      cpSync(join(userDecksDir(), name), join(presentationsDir(), name), {
-        recursive: true,
-        filter: deckFilter,
-      })
-    } catch {
-      /* ignore a single bad deck */
-    }
-  }
+  // Decks now live in userData directly — no src-tree sync needed.
+  // TODO: seed a bundled example deck for fresh installs
+  mkdirSync(presentationsDir(), { recursive: true })
 }
 
-/** Mirror user decks from the source tree to the durable userData backup. */
+/** No-op: decks already live in userData directly; no separate backup needed. */
 export function backupUserDecks(): void {
-  if (app.isPackaged) return
-  try {
-    mkdirSync(userDecksDir(), { recursive: true })
-  } catch {
-    /* ignore */
-  }
-  for (const name of safeReaddir(presentationsDir())) {
-    if (!name.startsWith(USER_PREFIX)) continue
-    try {
-      cpSync(join(presentationsDir(), name), join(userDecksDir(), name), {
-        recursive: true,
-        filter: deckFilter,
-      })
-    } catch {
-      /* ignore */
-    }
-  }
+  /* decks now live in userData directly; no separate backup needed */
 }
 
 /** Scaffold a new code presentation folder from the template. */
