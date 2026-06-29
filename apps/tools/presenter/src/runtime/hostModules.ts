@@ -4,37 +4,29 @@ import * as vueuse from '@vueuse/core'
 import * as engine from '../engine'
 
 /**
- * Expose the modules that runtime-compiled deck bundles import as externals
- * (`vue`, `gsap`, `@vueuse/core`, `presenter-engine`) via an import map that
- * points each bare specifier at a blob-URL ES-module shim re-exporting the
- * already-loaded module. MUST run once, before the first deck `import()`.
+ * Expose the modules that runtime-compiled deck bundles depend on
+ * (`vue`, `gsap`, `@vueuse/core`, `presenter-engine`) on `globalThis.__oasHost`.
+ * Decks are compiled to CJS and evaluated by `loadPresentation` with a custom
+ * `require` that reads from this map — so a deck and the host share ONE Vue
+ * instance (and the same engine), which the engine's components need to render
+ * the deck's slides. Must run once before any deck loads. (An ESM import map was
+ * tried first but its injection always lands after the page's module graph has
+ * begun loading, so bare specifiers like "vue" fail to resolve.)
  */
-let installed = false
-
-function shimUrl(mod: Record<string, unknown>): string {
-  ;(globalThis as Record<string, unknown>).__oas_mod ??= {}
-  const store = (globalThis as Record<string, unknown>).__oas_mod as Record<string, unknown>
-  const key = `m${Object.keys(store).length}`
-  store[key] = mod
-  const names = Object.keys(mod).filter((n) => n !== 'default')
-  const body =
-    `const m = globalThis.__oas_mod.${key};\n` +
-    names.map((n) => `export const ${n} = m[${JSON.stringify(n)}];`).join('\n') +
-    `\nexport default ('default' in m ? m.default : m);`
-  return URL.createObjectURL(new Blob([body], { type: 'text/javascript' }))
+declare global {
+  // eslint-disable-next-line no-var
+  var __oasHost: Record<string, unknown> | undefined
 }
+
+let installed = false
 
 export function installHostModules(): void {
   if (installed) return
   installed = true
-  const imports: Record<string, string> = {
-    vue: shimUrl(vue as Record<string, unknown>),
-    gsap: shimUrl(gsapMod as Record<string, unknown>),
-    '@vueuse/core': shimUrl(vueuse as Record<string, unknown>),
-    'presenter-engine': shimUrl(engine as Record<string, unknown>),
+  globalThis.__oasHost = {
+    vue,
+    gsap: gsapMod,
+    '@vueuse/core': vueuse,
+    'presenter-engine': engine,
   }
-  const el = document.createElement('script')
-  el.type = 'importmap'
-  el.textContent = JSON.stringify({ imports })
-  document.head.appendChild(el)
 }

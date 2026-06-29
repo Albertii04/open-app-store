@@ -31,11 +31,21 @@ export async function loadPresentation(id: string): Promise<Presentation | undef
   const tb = findToolbox()
   if (!tb?.authoring?.compiledDeck) return undefined
   const code = await tb.authoring.compiledDeck(id)
-  const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
-  try {
-    const mod = (await import(/* @vite-ignore */ url)) as { default?: Presentation; presentation?: Presentation }
-    return mod.default ?? mod.presentation
-  } finally {
-    URL.revokeObjectURL(url)
+  // The deck is compiled to CJS. Evaluate it with a `require` that returns the
+  // host-provided modules (vue/gsap/@vueuse/core/presenter-engine) so the deck
+  // shares the host's Vue instance + engine. No import map, no module graph.
+  const host = globalThis.__oasHost ?? {}
+  const require = (spec: string): unknown => {
+    if (spec in host) return host[spec]
+    throw new Error(`módulo no disponible en el host: ${spec}`)
   }
+  const module = { exports: {} as Record<string, unknown> }
+  const factory = new Function('require', 'module', 'exports', code) as (
+    r: typeof require,
+    m: typeof module,
+    e: Record<string, unknown>,
+  ) => void
+  factory(require, module, module.exports)
+  const exp = module.exports as { default?: Presentation; presentation?: Presentation }
+  return exp.default ?? exp.presentation
 }

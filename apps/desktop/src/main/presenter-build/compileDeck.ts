@@ -178,7 +178,11 @@ export async function compileDeckAt(deckDir: string): Promise<CompileResult> {
       entryPoints: [entry],
       outfile: outFile,
       bundle: true,
-      format: 'esm',
+      // CJS (not ESM): the renderer evals this with a custom `require` that
+      // returns host-provided modules from globalThis.__oasHost. This avoids
+      // ESM import maps, whose injection timing (after the page's module graph
+      // has loaded) makes bare specifiers like "vue" fail to resolve.
+      format: 'cjs',
       platform: 'browser',
       target: 'es2022',
       sourcemap: true,
