@@ -11,10 +11,15 @@ describe('codex adapter', () => {
     expect(a.join(' ')).toContain('--model gpt-5')
     expect(a[a.length - 1]).toBe('hi')
   })
-  it('builds read-only + resume args', () => {
+  it('builds read-only + resume args (exec options before resume, prompt last)', () => {
     const a = buildCodexArgs({ cwd: '/d', message: 'x', readDirs: [], allowEdits: false, resumeSessionId: 'T1' })
     expect(a.join(' ')).toContain('--sandbox read-only')
     expect(a.join(' ')).toContain('resume T1')
+    // exec options MUST precede the `resume` subcommand; prompt is last.
+    expect(a.indexOf('--cd')).toBeLessThan(a.indexOf('resume'))
+    expect(a.indexOf('--sandbox')).toBeLessThan(a.indexOf('resume'))
+    expect(a[a.length - 1]).toBe('x')
+    expect(a[a.indexOf('resume') + 1]).toBe('T1')
   })
   it('parses a stream into events with session id on done', () => {
     const p = makeCodexParser()

@@ -3,15 +3,18 @@ import type { ChatEvent } from '../../../shared/types.js'
 import { streamAgent } from './streamAgent.js'
 
 export function buildCodexArgs(o: AgentRunOptions): string[] {
+  // `exec` options (--cd/--sandbox/--skip-git-repo-check/--model) must come
+  // BEFORE the `resume` subcommand — `codex exec resume` does not accept them,
+  // so putting `resume` first makes the CLI reject `--cd` ("unexpected argument").
+  // Shape: codex exec [exec-options] [resume <id>] <prompt>
   const args = ['exec', '--json']
-  if (o.resumeSessionId) args.push('resume', o.resumeSessionId)
   args.push('--cd', o.cwd)
   // `codex exec` is non-interactive (no approval prompts); the sandbox mode is
-  // what gates edits. Note: `--ask-for-approval` is NOT valid on `exec` and
-  // makes the CLI reject the whole command.
+  // what gates edits. Note: `--ask-for-approval` is NOT valid on `exec`.
   args.push('--sandbox', o.allowEdits ? 'workspace-write' : 'read-only')
   args.push('--skip-git-repo-check')
   if (o.model) args.push('--model', o.model)
+  if (o.resumeSessionId) args.push('resume', o.resumeSessionId)
   args.push(o.message)
   return args
 }
