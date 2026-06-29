@@ -21,6 +21,10 @@ extraResources:
       - '**/toolbox.json'
       - '**/icon.svg'
       - '**/dist/**'
+      - '**/template/**'
+      - '**/blocks/**'
+      - '**/blocks-user/**'
+      - '**/src/engine/**'
 mac:
   target:
     - dmg

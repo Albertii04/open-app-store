@@ -4,12 +4,12 @@ import { join } from 'node:path'
 import { loadToolsFromDir, type LoadedTool } from '@openappstore/tool-host'
 import type { TabsState, ToolStatus, ToolSummary } from '../shared/types.js'
 import { builtinToolsDir, installedToolsDir } from './paths.js'
-import { registerToolView, unregisterToolView } from './broker.js'
+import { registerToolView, unregisterToolView } from './tool-registry.js'
 
 /** Height of the persistent tab bar; tool views sit below it, full width. */
 const TABBAR_H = 40
 
-function toolPreloadPath(): string {
+export function toolPreloadPath(): string {
   return join(app.getAppPath(), 'out/preload/tool.js')
 }
 
@@ -177,11 +177,36 @@ export class ToolManager {
     // A tool may open its own windows (e.g. the Presenter audience/console).
     // Allow same-origin file:// and the local authoring dev server (so the
     // presenter window stays in Electron and syncs); route other URLs to the OS.
+    // Crucially, give the opened window the SAME tool preload + toolbox args so
+    // it has its own `window.toolbox` bridge (needed now that decks are loaded
+    // via the broker, not bundled). It's registered with the broker below.
     wc.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('file://') || /^https?:\/\/localhost(:\d+)?\//.test(url))
-        return { action: 'allow' }
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            webPreferences: {
+              preload: toolPreloadPath(),
+              sandbox: true,
+              contextIsolation: true,
+              nodeIntegration: false,
+              additionalArguments: [
+                `--toolbox-id=${tool.manifest.id}`,
+                `--toolbox-name=${tool.manifest.name}`,
+                `--toolbox-version=${tool.manifest.version}`,
+              ],
+            },
+          },
+        }
       if (/^https?:/.test(url)) void shell.openExternal(url)
       return { action: 'deny' }
+    })
+    // Register each tool-opened window with the broker so its toolbox bridge is
+    // authorized (same capabilities as the tool), and clean up on close.
+    wc.on('did-create-window', (win) => {
+      const cwc = win.webContents
+      registerToolView(cwc.id, tool.manifest, tool.source)
+      cwc.on('destroyed', () => unregisterToolView(cwc.id))
     })
     wc.on('will-navigate', (e, url) => {
       if (url.startsWith('file://')) return

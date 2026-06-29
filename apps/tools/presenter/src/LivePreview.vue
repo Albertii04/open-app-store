@@ -2,12 +2,14 @@
 import { onMounted, ref } from 'vue'
 
 const props = defineProps<{ presId: string }>()
-const base = ref('')
 const url = ref('')
-const error = ref('')
 const frame = ref<HTMLIFrameElement | null>(null)
 const deckIdx = ref(0)
 const deckTotal = ref(0)
+
+function getBase(): string {
+  return location.href.split('?')[0].split('#')[0]
+}
 
 function onDeckMsg(e: MessageEvent): void {
   if (e.data?.type === 'deck-state') {
@@ -19,27 +21,23 @@ function nav(dir: 'prev' | 'next'): void {
   frame.value?.contentWindow?.postMessage({ type: 'deck-nav', dir }, '*')
 }
 function openPresenter(): void {
-  if (base.value) window.open(`${base.value}?pres=${props.presId}&p`, '_blank')
+  window.open(`${getBase()}?pres=${props.presId}&p`, '_blank')
 }
 function goHome(): void {
   location.search = ''
 }
+function reload(): void {
+  const base = getBase()
+  url.value = `${base}?pres=${props.presId}&nav=1&t=${Date.now()}`
+}
 
-onMounted(async () => {
+onMounted(() => {
   window.addEventListener('message', onDeckMsg)
-  const tb = (window as unknown as { toolbox?: { authoring?: { previewUrl(): Promise<string> } } })
-    .toolbox
-  if (!tb?.authoring) {
-    error.value = 'La vista en vivo solo está disponible dentro del shell.'
-    return
-  }
-  try {
-    base.value = await tb.authoring.previewUrl()
-    url.value = `${base.value}?pres=${props.presId}&nav=1`
-  } catch (e) {
-    error.value = 'No se pudo iniciar el servidor de preview: ' + (e as Error).message
-  }
+  const base = getBase()
+  url.value = `${base}?pres=${props.presId}&nav=1`
 })
+
+defineExpose({ reload })
 </script>
 
 <template>
@@ -54,8 +52,7 @@ onMounted(async () => {
       <button class="lp-btn" @click="openPresenter">Presenter ↗</button>
     </div>
     <div class="lp-body">
-      <div v-if="!url && !error" class="lp-msg">Iniciando servidor de preview en vivo…</div>
-      <div v-else-if="error" class="lp-msg">{{ error }}</div>
+      <div v-if="!url" class="lp-msg">Cargando preview…</div>
       <iframe v-else ref="frame" :src="url" class="lp-frame" title="Vista en vivo" />
     </div>
   </div>
