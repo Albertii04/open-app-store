@@ -302,14 +302,6 @@ onMounted(() => {
       >
         <RefreshCw class="size-4" />
       </button>
-
-      <button
-        class="no-drag grid size-7 place-items-center rounded-md text-neutral-500 hover:bg-neutral-200/70 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
-        title="Ajustes de IA"
-        @click="settingsOpen = true"
-      >
-        <Settings class="size-4" />
-      </button>
     </div>
 
     <!-- body -->
@@ -378,9 +370,14 @@ onMounted(() => {
             <Tag class="size-4" /> {{ c }}
           </button>
 
+          <!-- settings (home only) -->
+          <button class="nav mt-auto" @click="settingsOpen = true">
+            <Settings class="size-4" /> Configuración
+          </button>
+
           <!-- version + check-for-update -->
           <button
-            class="nav mt-auto justify-between"
+            class="nav justify-between"
             :title="updateLabel"
             :disabled="update?.phase === 'checking'"
             @click="checkUpdate"
