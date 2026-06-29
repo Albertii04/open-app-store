@@ -42,6 +42,11 @@ const api: ShellApi = {
   installUpdate: () => ipcRenderer.invoke('shell:update:install'),
   checkForUpdates: () => ipcRenderer.invoke('shell:update:check'),
   appVersion: () => ipcRenderer.invoke('shell:appVersion'),
+  aiGet: () => ipcRenderer.invoke('shell:aiGet'),
+  aiSet: (patch) => ipcRenderer.invoke('shell:aiSet', patch),
+  aiDetect: (provider) => ipcRenderer.invoke('shell:aiDetect', provider),
+  aiTest: (provider) => ipcRenderer.invoke('shell:aiTest', provider),
+  aiModels: (provider) => ipcRenderer.invoke('shell:aiModels', provider),
 }
 
 contextBridge.exposeInMainWorld('shellApi', api)

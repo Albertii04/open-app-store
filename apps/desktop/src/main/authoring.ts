@@ -1,10 +1,17 @@
-import { spawn, type ChildProcess } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import type { ChatEvent } from '../shared/types.js'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { compileDeck } from './presenter-build/compileDeck.js'
 import { cp, rm, writeFile } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
+import { pathToFileURL } from 'node:url'
+import { runAgent } from './ai/run.js'
+import { getAiSettings } from './ai/settings.js'
+import type { AgentHandle } from './ai/types.js'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { app, BrowserWindow, dialog } from 'electron'
 import AdmZip from 'adm-zip'
+import { toolPreloadPath } from './tools.js'
+import { registerToolView, unregisterToolView } from './tool-registry.js'
 
 /** Create `dest` (a .zip) from the single top-level folder inside `staging`. */
 function zipFolder(staging: string, dest: string): void {
@@ -32,20 +39,23 @@ function extractZip(zipPath: string, destDir: string): void {
   }
 }
 
-/**
- * Privileged authoring host: runs a single Vite dev server for the Presenter so
- * the editor can show a live (HMR) preview while a presentation's code is edited.
- * Dev-only (needs the source tree); not available in a packaged build yet.
- */
-let proc: ChildProcess | null = null
-let url: string | null = null
-let starting: Promise<string> | null = null
-
 function presenterDir(): string {
+  // Source assets the deck compiler + authoring need (template, blocks, engine).
+  if (app.isPackaged) return join(process.resourcesPath, 'tools/presenter')
   return resolve(app.getAppPath(), '../tools/presenter')
 }
+
+/** file:// URL of the built Presenter app (dev + packaged both load from dist). */
+function presenterEntryUrl(): string {
+  return pathToFileURL(join(presenterDir(), 'dist', 'index.html')).href
+}
+
+/** Read the Presenter tool manifest (toolbox.json). */
+function presenterManifest(): import('@openappstore/sdk').ToolManifest {
+  return JSON.parse(readFileSync(join(presenterDir(), 'toolbox.json'), 'utf8'))
+}
 function presentationsDir(): string {
-  return join(presenterDir(), 'src/presentations')
+  return join(app.getPath('userData'), 'presentations')
 }
 function templateDir(): string {
   // Outside src/ so it isn't type-checked or globbed in place; copied into
@@ -55,63 +65,54 @@ function templateDir(): string {
 
 const USER_PREFIX = 'u-'
 
+// PDF export page size in CSS px: 16:9 at 1280×720 (= 13.333in × 7.5in @96dpi).
+const PDF_PAGE_W = 1280
+const PDF_PAGE_H = 720
+
 // ---- durable deck backup ----
-// User decks live in the (gitignored) source tree so Vite can compile them, so
-// they don't survive a repo move/clean or ship in CI builds. Mirror each to a
-// durable copy under userData and restore them into the source tree on startup.
+// User decks live directly in userData/presentations.
 
 function userDecksDir(): string {
   return join(app.getPath('userData'), 'presentations')
 }
-function safeReaddir(dir: string): string[] {
-  try {
-    return readdirSync(dir)
-  } catch {
-    return []
-  }
-}
-// Back up the deck CODE only. Skip read-in-place source material, attachments,
-// build output and VCS — that stuff can be huge and may contain symlinks (e.g.
-// a downloaded CLI) that make cpSync fail with EINVAL.
-const DECK_SKIP = /(^|\/)(node_modules|\.git|dist|attachments|source|__MACOSX)(\/|$)/
-const deckFilter = (s: string): boolean => !DECK_SKIP.test(s) && !s.endsWith('.sourcepath')
 
-/** Restore user decks from the userData backup into the source tree (dev only). */
+// Reference material is meant to be read in place (--add-dir), never copied into
+// the deck. If the AI editor ignores that and copies a repo in anyway, these
+// trees bloat the project and break exports. After each turn we delete any of
+// them found inside the deck. `attachments` is intentionally NOT here — it holds
+// real images the deck imports.
+const DECK_JUNK = new Set(['node_modules', '.git', '.pnpm-store', 'source', 'dist', 'target', '__MACOSX', '.build'])
+
+/** Remove any DECK_JUNK folders the editor created inside a deck (defense vs.
+ *  the agent copying reference material in instead of reading it in place). */
+async function pruneDeckJunk(presId: string): Promise<void> {
+  const walk = async (dir: string): Promise<void> => {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of entries) {
+      if (!e.isDirectory()) continue
+      const full = join(dir, e.name)
+      if (DECK_JUNK.has(e.name)) await rm(full, { recursive: true, force: true }).catch(() => {})
+      else await walk(full)
+    }
+  }
+  await walk(join(presentationsDir(), presId))
+}
+
+/** Ensure the userData presentations directory exists. */
 export function restoreUserDecks(): void {
-  if (app.isPackaged) return // packaged decks are baked into dist; source tree is read-only
-  const have = new Set(safeReaddir(presentationsDir()))
-  for (const name of safeReaddir(userDecksDir())) {
-    if (!name.startsWith(USER_PREFIX) || have.has(name)) continue
-    try {
-      cpSync(join(userDecksDir(), name), join(presentationsDir(), name), {
-        recursive: true,
-        filter: deckFilter,
-      })
-    } catch {
-      /* ignore a single bad deck */
-    }
-  }
+  // Decks now live in userData directly — no src-tree sync needed.
+  // TODO: seed a bundled example deck for fresh installs
+  mkdirSync(presentationsDir(), { recursive: true })
 }
 
-/** Mirror user decks from the source tree to the durable userData backup. */
+/** No-op: decks already live in userData directly; no separate backup needed. */
 export function backupUserDecks(): void {
-  if (app.isPackaged) return
-  try {
-    mkdirSync(userDecksDir(), { recursive: true })
-  } catch {
-    /* ignore */
-  }
-  for (const name of safeReaddir(presentationsDir())) {
-    if (!name.startsWith(USER_PREFIX)) continue
-    try {
-      cpSync(join(presentationsDir(), name), join(userDecksDir(), name), {
-        recursive: true,
-        filter: deckFilter,
-      })
-    } catch {
-      /* ignore */
-    }
-  }
+  /* decks now live in userData directly; no separate backup needed */
 }
 
 /** Scaffold a new code presentation folder from the template. */
@@ -127,8 +128,8 @@ export async function createPresentation(name: string): Promise<{ id: string }> 
 /** Remove a user presentation folder (only ids with the user prefix). */
 export async function deletePresentation(id: string): Promise<void> {
   if (!id.startsWith(USER_PREFIX)) throw new Error('refusing to delete a non-user presentation')
+  // presentationsDir() and userDecksDir() resolve to the same path (userData/presentations).
   await rm(join(presentationsDir(), id), { recursive: true, force: true })
-  await rm(join(userDecksDir(), id), { recursive: true, force: true }) // drop the backup too
 }
 
 /** Native folder picker; returns the chosen path or null. */
@@ -213,7 +214,10 @@ export async function exportPresentation(presId: string): Promise<string | null>
   await cp(presFolder, join(src, 'presentations', presId), {
     recursive: true,
     // Drop internal/heavy bits that aren't part of the shareable code project.
-    filter: (s) => !s.includes(`${presId}/attachments`) && !s.endsWith('.sourcepath'),
+    filter: (s) =>
+      !s.includes(`${presId}/attachments`) &&
+      !s.endsWith('.sourcepath') &&
+      !s.includes(`${presId}/.build`),
   })
 
   // Entry that mounts just this deck (navigable: arrow keys advance slides).
@@ -335,7 +339,124 @@ Abre la URL que imprime Vite. Flechas ← / → cambian de slide; F = pantalla c
   return dest
 }
 
-const IMPORT_SKIP = /(^|\/)(node_modules|\.git|dist|attachments|__MACOSX)(\/|$)/
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Export a presentation to a PDF — one slide per page, rendered exactly as the
+ * live deck (final/static state). Opens an offscreen window on the Presenter's
+ * `?export=<id>` route (a vertical stack of 1280×720 pages), screenshots each
+ * page via the GPU compositor, then prints those images to the PDF.
+ *
+ * Why screenshot instead of printing the page directly: Chromium's print path
+ * doesn't honour `mask-composite` or `background-clip: text`, so animated glow
+ * borders fill solid and gradient-clipped titles leave ghost boxes. capturePage
+ * uses the on-screen compositor, so the PDF matches the deck pixel-for-pixel.
+ *
+ * Returns the saved path, or null if the user cancelled.
+ */
+export async function exportPresentationPdf(presId: string): Promise<string | null> {
+  if (!presId.startsWith(USER_PREFIX)) throw new Error('invalid presentation')
+  const presFolder = join(presentationsDir(), presId)
+  let name = presId
+  try {
+    name = JSON.parse(readFileSync(join(presFolder, 'presentation.json'), 'utf8')).name || presId
+  } catch {
+    /* fall back to the id */
+  }
+  const slug = slugify(name)
+
+  const res = await dialog.showSaveDialog({
+    title: 'Exportar presentación a PDF',
+    defaultPath: `${slug}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  })
+  if (res.canceled || !res.filePath) return null
+  const dest = res.filePath
+
+  const m = presenterManifest()
+  const win = new BrowserWindow({
+    show: false,
+    width: PDF_PAGE_W,
+    height: PDF_PAGE_H,
+    paintWhenInitiallyHidden: true,
+    // Isolated, in-memory session: ExportDeck pre-sets slider state in
+    // localStorage, and this keeps it from leaking into the live deck.
+    webPreferences: {
+      offscreen: false,
+      backgroundThrottling: false,
+      partition: 'export-pdf',
+      preload: toolPreloadPath(),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      additionalArguments: [
+        `--toolbox-id=${m.id}`,
+        `--toolbox-name=${m.name}`,
+        `--toolbox-version=${m.version}`,
+      ],
+    },
+  })
+  registerToolView(win.webContents.id, m, 'builtin')
+  try {
+    await win.loadURL(`${presenterEntryUrl()}?export=${presId}`)
+    // Wait for webfonts (a fallback font reflows/overlaps), then a settle so slide
+    // intro animations reach their final frame before we screenshot.
+    await win.webContents.executeJavaScript('document.fonts.ready.then(() => true)')
+    await sleep(1500)
+
+    const count = (await win.webContents.executeJavaScript(
+      'document.querySelectorAll(".export-page").length',
+    )) as number
+    if (!count) throw new Error('la presentación no tiene diapositivas')
+
+    // Screenshot each 1280×720 page through the compositor.
+    const shots: string[] = []
+    for (let i = 0; i < count; i++) {
+      await win.webContents.executeJavaScript(`window.scrollTo(0, ${i} * ${PDF_PAGE_H})`)
+      await sleep(140)
+      const img = await win.webContents.capturePage({
+        x: 0,
+        y: 0,
+        width: PDF_PAGE_W,
+        height: PDF_PAGE_H,
+      })
+      shots.push(img.toPNG().toString('base64'))
+    }
+
+    // Replace the DOM with the captured images (one per print page) and print
+    // those — plain raster, immune to the print-path CSS gaps noted above.
+    await win.webContents.executeJavaScript(`(() => {
+      const s = document.createElement('style')
+      s.textContent = '@page{size:13.333in 7.5in;margin:0} html,body{margin:0;padding:0;height:auto;width:auto;overflow:visible;background:#fff} #pdfwrap img{display:block;width:${PDF_PAGE_W}px;height:${PDF_PAGE_H}px;break-after:page;page-break-after:always} #pdfwrap img:last-child{break-after:auto;page-break-after:auto}'
+      document.head.appendChild(s)
+      document.body.innerHTML = '<div id="pdfwrap"></div>'
+      return true
+    })()`)
+    for (const b64 of shots) {
+      await win.webContents.executeJavaScript(
+        `(() => { const img = new Image(); img.src = 'data:image/png;base64,' + ${JSON.stringify(b64)}; document.getElementById('pdfwrap').appendChild(img); return true })()`,
+      )
+    }
+    await win.webContents.executeJavaScript(
+      'Promise.all(Array.from(document.images).map((i) => i.decode().catch(() => {}))).then(() => true)',
+    )
+    await sleep(250)
+
+    const pdf = await win.webContents.printToPDF({
+      printBackground: true,
+      preferCSSPageSize: true, // honour the @page { size: 13.333in 7.5in } above
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    })
+    await rm(dest, { force: true })
+    writeFileSync(dest, pdf)
+    return dest
+  } finally {
+    unregisterToolView(win.webContents.id)
+    win.destroy()
+  }
+}
+
+const IMPORT_SKIP = /(^|\/)(node_modules|\.git|dist|\.build|attachments|__MACOSX)(\/|$)/
 
 /**
  * Older exported decks painted their letterbox with a GLOBAL rule in theme.css
@@ -547,16 +668,29 @@ function queueThumb<T>(fn: () => Promise<T>): Promise<T> {
  *  cache file path. Heavy — runs one at a time via queueThumb. */
 function renderThumbnail(presId: string): Promise<string> {
   return queueThumb(async () => {
-    const base = await getPreviewUrl()
+    const m = presenterManifest()
     const win = new BrowserWindow({
       show: false,
       width: 1280,
       height: 720,
       paintWhenInitiallyHidden: true,
-      webPreferences: { offscreen: false, backgroundThrottling: false },
+      webPreferences: {
+        offscreen: false,
+        backgroundThrottling: false,
+        preload: toolPreloadPath(),
+        sandbox: true,
+        contextIsolation: true,
+        nodeIntegration: false,
+        additionalArguments: [
+          `--toolbox-id=${m.id}`,
+          `--toolbox-name=${m.name}`,
+          `--toolbox-version=${m.version}`,
+        ],
+      },
     })
+    registerToolView(win.webContents.id, m, 'builtin')
     try {
-      await win.loadURL(`${base}?pres=${presId}`)
+      await win.loadURL(`${presenterEntryUrl()}?pres=${presId}`)
       // Let fonts load and the intro animation settle before capturing.
       await new Promise((r) => setTimeout(r, 1300))
       const img = await win.webContents.capturePage()
@@ -565,6 +699,7 @@ function renderThumbnail(presId: string): Promise<string> {
       writeFileSync(thumbFile(presId), jpg)
       return thumbFile(presId)
     } finally {
+      unregisterToolView(win.webContents.id)
       win.destroy()
     }
   })
@@ -585,26 +720,18 @@ export async function getThumbnail(presId: string, force = false): Promise<strin
 
 // ---- AI editor (Claude Code) ----
 
-type ChatEvent = {
-  kind: 'assistant' | 'tool' | 'done' | 'error'
-  text: string
-  // On 'done': the Claude Code session id, so the caller can --resume this exact
-  // conversation later (sessions are per-conversation, owned by the renderer).
-  sessionId?: string
-}
-
 // Running chat process per presentation, so it can be stopped.
-const chatProc = new Map<string, ChildProcess>()
+const chatProc = new Map<string, AgentHandle>()
 
 /** Stop the running AI editor turn for a presentation. */
 export function stopChat(presId: string): void {
-  chatProc.get(presId)?.kill()
+  chatProc.get(presId)?.stop()
   chatProc.delete(presId)
 }
 
 /**
- * Drive a Claude Code session to edit a presentation folder. Spawns `claude -p`
- * with cwd = the folder (confinement), streams parsed progress via `emit`, and
+ * Drive the configured AI provider to edit a presentation folder via `runAgent`.
+ * CWD is confined to the deck folder; streams parsed progress via `emit` and
  * resolves when the turn ends. Only Read/Edit/Write/Glob/Grep are allowed (no Bash).
  */
 export function sendChat(
@@ -613,6 +740,8 @@ export function sendChat(
   emit: (e: ChatEvent) => void,
   allowEdits = true,
   resumeSessionId?: string | null,
+  providerOverride?: string,
+  modelOverride?: string,
 ): Promise<void> {
   return new Promise((resolveP) => {
     const folder = join(presentationsDir(), presId)
@@ -630,7 +759,7 @@ export function sendChat(
     // textos, imágenes. Only the images actually used in slides get copied into
     // the presentation, because Vite bundles assets from the project tree.
     const sourceLine = source
-      ? `El material de referencia del usuario está en ${source} (carpeta añadida con acceso de lectura). LÉELO EN SITIO con Read/Glob/Grep — código, CLAUDE.md, diseño, textos, imágenes — y NO lo dupliques en la presentación. Excepción: para una imagen que vayas a MOSTRAR en una slide, cópiala a assets/ de la presentación e impórtala (Vite empaqueta desde el proyecto); el resto se queda donde está. Si el usuario añade cosas a esa carpeta luego, las verás en el siguiente turno.`
+      ? `El material de referencia del usuario está en ${source} (carpeta añadida con acceso de lectura). LÉELO EN SITIO con Read/Glob/Grep — código, CLAUDE.md, diseño, textos, imágenes — y NO lo dupliques en la presentación. PROHIBIDO: copiar el repo o partes de él al deck, crear una carpeta source/ dentro de la presentación, o copiar node_modules/.git/código fuente. Excepción ÚNICA: una imagen que vayas a MOSTRAR en una slide, cópiala a assets/ e impórtala (Vite empaqueta desde el proyecto); todo lo demás se queda donde está. Si el usuario añade cosas a esa carpeta luego, las verás en el siguiente turno.`
       : ''
 
     // First turn of a session: prepend a preamble. In PLAN mode (no edits) Claude
@@ -642,134 +771,67 @@ export function sendChat(
         : `Estás PLANIFICANDO una presentación de código (Vue 3 + GSAP) sobre el engine de Presenter (cwd). ${sourceLine} ${libsLine} Tu tarea ahora: ANALIZA el material y PROPÓN un plan de slides concreto — para cada slide, di qué muestra y qué bloque de la librería usar (o si hace falta uno nuevo), y el estilo/tema. NO edites archivos todavía: solo analiza y propón, en texto. El usuario revisará y, cuando dé a "Implementar", lo construyes. Brief del usuario: ${message}`
     }
 
-    const tools = allowEdits
-      ? 'Read,Edit,Write,Glob,Grep,WebFetch'
-      : 'Read,Glob,Grep,WebFetch'
+    const settings = getAiSettings()
+    const active = (providerOverride as typeof settings.active) || settings.active
+    const model = modelOverride ?? settings.providers[active]?.model
+    const readDirs = [blocks, userBlocks, source].filter((d): d is string => !!d)
 
-    const args = [
-      '-p',
-      prompt,
-      '--output-format',
-      'stream-json',
-      '--verbose',
-      '--add-dir',
-      blocks,
-      '--add-dir',
-      userBlocks,
-    ]
-    if (source) args.push('--add-dir', source)
-    args.push('--allowedTools', tools, '--permission-mode', 'acceptEdits')
-    if (prev) args.push('--resume', prev)
-
-    // Ensure ~/.local/bin (where `claude` lives) is on PATH.
-    const env = { ...process.env, PATH: `${homedir()}/.local/bin:${process.env.PATH ?? ''}` }
-    const child = spawn('claude', args, { cwd: folder, env, stdio: ['ignore', 'pipe', 'pipe'] })
-    chatProc.set(presId, child)
-
-    let buf = ''
-    child.stdout.on('data', (chunk: Buffer) => {
-      buf += chunk.toString()
-      let nl: number
-      while ((nl = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, nl).trim()
-        buf = buf.slice(nl + 1)
-        if (!line) continue
-        let msg: Record<string, unknown>
-        try {
-          msg = JSON.parse(line)
-        } catch {
-          continue
+    const handle = runAgent(
+      active,
+      {
+        cwd: folder,
+        message: prompt,
+        readDirs,
+        allowEdits,
+        model,
+        // Sessions are provider-specific: a `<provider>:<id>` tag is stored so we
+        // only resume when the SAME provider is active. Resuming claude with a
+        // codex session id (or vice-versa) makes the CLI exit with an error.
+        resumeSessionId:
+          prev && prev.startsWith(`${active}:`) ? prev.slice(active.length + 1) : null,
+      },
+      settings.providers[active]?.binPath,
+      (ev) => {
+        // Tag the session id with the active provider so the renderer stores it
+        // tagged and a later turn only resumes within the same provider.
+        if (ev.kind === 'done' && ev.sessionId) ev = { ...ev, sessionId: `${active}:${ev.sessionId}` }
+        emit(ev)
+        if (ev.kind === 'done') {
+          // The deck likely changed — prune copied-in junk, then refresh the
+          // cover thumbnail + back up.
+          void pruneDeckJunk(presId)
+            .catch(() => {})
+            .finally(() => {
+              void renderThumbnail(presId).catch(() => {})
+              backupUserDecks()
+            })
+          chatProc.delete(presId)
+          resolveP()
+        } else if (ev.kind === 'error') {
+          chatProc.delete(presId)
+          resolveP()
         }
-        if (msg.type === 'assistant') {
-          const content = (msg.message as { content?: unknown[] })?.content ?? []
-          for (const b of content as Array<Record<string, unknown>>) {
-            if (b.type === 'text' && typeof b.text === 'string' && b.text.trim())
-              emit({ kind: 'assistant', text: b.text })
-            else if (b.type === 'tool_use') {
-              const file = (b.input as { file_path?: string })?.file_path
-              emit({ kind: 'tool', text: `${b.name}${file ? ' · ' + file.split('/').pop() : ''}` })
-            }
-          }
-        } else if (msg.type === 'result') {
-          emit({
-            kind: msg.is_error ? 'error' : 'done',
-            text: String(msg.result ?? ''),
-            sessionId: typeof msg.session_id === 'string' ? msg.session_id : undefined,
-          })
-          // The deck likely changed — refresh its cover thumbnail + back up.
-          if (!msg.is_error) {
-            void renderThumbnail(presId).catch(() => {})
-            backupUserDecks()
-          }
-        }
-        // everything else (system/hook/rate_limit/init) is noise — ignored
-      }
-    })
-    child.on('error', (e) => {
-      chatProc.delete(presId)
-      emit({ kind: 'error', text: e.message })
-      resolveP()
-    })
-    child.on('exit', (code, signal) => {
-      chatProc.delete(presId)
-      if (signal) emit({ kind: 'error', text: 'Detenido.' })
-      resolveP()
-    })
+      },
+    )
+    chatProc.set(presId, handle)
   })
 }
 
+/** Deprecated: preview is now the Presenter page itself (?pres=<id>), compiled
+ *  at load time. Kept for SDK compatibility; returns ''. */
 export function getPreviewUrl(): Promise<string> {
-  if (url) return Promise.resolve(url)
-  if (starting) return starting
-  if (app.isPackaged)
-    return Promise.reject(new Error('authoring dev server only available when running from source'))
-
-  starting = new Promise<string>((res, rej) => {
-    let settled = false
-    const done = (u: string): void => {
-      if (settled) return
-      settled = true
-      url = u
-      res(u)
-    }
-    const fail = (e: Error): void => {
-      if (settled) return
-      settled = true
-      starting = null
-      rej(e)
-    }
-
-    const dir = presenterDir()
-    const bin = join(dir, 'node_modules/.bin/vite')
-    // No --strictPort: if 5199 is busy (e.g. an orphaned dev server) Vite picks
-    // the next free port; we parse whatever URL it prints.
-    proc = spawn(bin, ['--port', '5199'], { cwd: dir, env: process.env })
-
-    const scan = (buf: Buffer): void => {
-      const m = buf.toString().match(/(http:\/\/localhost:\d+\/)/)
-      if (m) done(m[1])
-    }
-    proc.stdout?.on('data', scan)
-    proc.stderr?.on('data', scan)
-    proc.on('error', fail)
-    proc.on('exit', (code) => {
-      proc = null
-      if (!settled) {
-        fail(new Error(`dev server exited before starting (code ${code})`))
-      } else {
-        // Server died after running; allow a fresh start next time.
-        url = null
-        starting = null
-      }
-    })
-    setTimeout(() => fail(new Error('dev server start timeout')), 25000)
-  })
-  return starting
+  return Promise.resolve('')
 }
 
+/** Compile the deck and return its bundled ESM source (loaded as a Blob in the renderer). */
+export async function compiledDeckSource(presId: string): Promise<string> {
+  const r = await compileDeck(presId)
+  if (!r.ok) throw new Error(r.error)
+  return readFileSync(r.file, 'utf8')
+}
+
+/** No-op: the Vite dev-server has been removed; preview now runs in the
+ *  Presenter page itself. Kept so index.ts's import resolves cleanly. */
 export function stopAuthoring(): void {
-  if (proc) proc.kill()
-  proc = null
-  url = null
-  starting = null
+  /* nothing to tear down */
 }

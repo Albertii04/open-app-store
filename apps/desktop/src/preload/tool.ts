@@ -49,10 +49,14 @@ const api: ToolboxApi = {
     saveAttachment: (presId, name, dataBase64) =>
       ipcRenderer.invoke(IPC.authoringAttach, presId, name, dataBase64),
     exportPresentation: (presId) => ipcRenderer.invoke(IPC.authoringExport, presId),
+    exportPresentationPdf: (presId) => ipcRenderer.invoke(IPC.authoringExportPdf, presId),
     importPresentation: () => ipcRenderer.invoke(IPC.authoringImport),
     thumbnail: (presId, force) => ipcRenderer.invoke(IPC.authoringThumbnail, presId, force),
-    sendChat: (presId, message, allowEdits, resumeSessionId) =>
-      ipcRenderer.invoke(IPC.authoringChat, presId, message, allowEdits, resumeSessionId),
+    compiledDeck: (presId) => ipcRenderer.invoke(IPC.authoringCompiledDeck, presId),
+    aiGet: () => ipcRenderer.invoke(IPC.authoringAiGet),
+    aiModels: (p) => ipcRenderer.invoke(IPC.authoringAiModels, p),
+    sendChat: (presId, message, allowEdits, resumeSessionId, provider, model) =>
+      ipcRenderer.invoke(IPC.authoringChat, presId, message, allowEdits, resumeSessionId, provider, model),
     stopChat: (presId) => ipcRenderer.invoke(IPC.authoringStop, presId),
     onChat: (cb) => {
       const listener = (_e: unknown, ev: Parameters<typeof cb>[0]): void => cb(ev)

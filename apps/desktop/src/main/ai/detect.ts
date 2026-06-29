@@ -1,0 +1,76 @@
+import { existsSync, accessSync, constants, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
+import { execFileSync } from 'node:child_process'
+
+function isExec(p: string): boolean {
+  try {
+    accessSync(p, constants.X_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Cache the npm global prefix so candidateDirs() doesn't shell out on every AI turn.
+let _npmGlobalPrefix: string | undefined
+
+/** Directories an installed agent CLI is commonly found in (macOS/Linux). */
+export function candidateDirs(): string[] {
+  const dirs = [
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    join(homedir(), '.local/bin'),
+    join(homedir(), '.codex/bin'),
+    join(homedir(), '.opencode/bin'),
+  ]
+  for (const d of (process.env.PATH ?? '').split(':')) if (d) dirs.push(d)
+  // nvm installs node (and global npm bins like claude/codex/opencode) under
+  // ~/.nvm/versions/node/<ver>/bin — not on a GUI app's PATH. Scan every version.
+  try {
+    const nvmRoot = join(homedir(), '.nvm/versions/node')
+    for (const ver of readdirSync(nvmRoot)) dirs.push(join(nvmRoot, ver, 'bin'))
+  } catch {
+    /* no nvm — ignore */
+  }
+  // fnm / volta common locations.
+  dirs.push(join(homedir(), '.volta/bin'))
+  if (_npmGlobalPrefix === undefined) {
+    try {
+      _npmGlobalPrefix = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8' }).trim()
+    } catch {
+      _npmGlobalPrefix = '' // npm not present
+    }
+  }
+  if (_npmGlobalPrefix) dirs.push(join(_npmGlobalPrefix, 'bin'))
+  return [...new Set(dirs)]
+}
+
+/**
+ * Environment for spawning an agent CLI. A Finder/Dock-launched GUI app inherits
+ * a minimal PATH, which breaks the CLIs' own hooks/subprocesses (they shell out
+ * to node, git, etc.) and can hang the turn. Give the child a rich PATH built
+ * from the same dirs we search for binaries, so those subprocesses resolve.
+ */
+export function agentEnv(): NodeJS.ProcessEnv {
+  return { ...process.env, PATH: candidateDirs().join(':') }
+}
+
+/**
+ * Resolve a provider binary. `override` (user-set absolute path) wins if it
+ * exists + is executable; otherwise scan `dirs` (defaults to candidateDirs()).
+ */
+export function detectBinary(
+  binaryNames: string[],
+  override?: string,
+  dirs: string[] = candidateDirs(),
+): string | null {
+  if (override && existsSync(override) && isExec(override)) return override
+  for (const dir of dirs) {
+    for (const name of binaryNames) {
+      const p = join(dir, name)
+      if (existsSync(p) && isExec(p)) return p
+    }
+  }
+  return null
+}

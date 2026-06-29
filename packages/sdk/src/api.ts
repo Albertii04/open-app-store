@@ -97,9 +97,14 @@ export interface ToolboxApi {
      *  (opens a native save dialog). Returns the saved path, or null if
      *  cancelled. */
     exportPresentation(presId: string): Promise<string | null>;
+    /** Export the presentation to a PDF, one slide per page (opens a native
+     *  save dialog). Returns the saved path, or null if cancelled. */
+    exportPresentationPdf(presId: string): Promise<string | null>;
     /** Cover image (first slide rendered to JPEG) as a data URL, or null.
      *  Renders on first call (or when `force`), else returns the cached image. */
     thumbnail(presId: string, force?: boolean): Promise<string | null>;
+    /** Compile the deck and return its bundled ESM source (loaded as a Blob in the renderer). */
+    compiledDeck(presId: string): Promise<string>;
     /** Import a presentation from a zip (opens a native open dialog).
      *  mode 'ready' = a clean deck copied in; mode 'ai' = unrecognised material
      *  scaffolded into a blank deck with `prompt` for the AI editor to analyse
@@ -110,6 +115,10 @@ export interface ToolboxApi {
       mode: 'ready' | 'ai';
       prompt?: string;
     } | null>;
+    /** Return the current AI settings (active provider + per-provider config). */
+    aiGet(): Promise<{ active: string; providers: Record<string, { binPath?: string; model?: string }> }>;
+    /** List selectable models for a provider (best-effort, [] on failure). */
+    aiModels(provider: string): Promise<string[]>;
     /** Send a chat message to the AI editor (Claude Code) for a presentation;
      *  it edits the folder's code. Resolves when the turn finishes. Stream
      *  progress via onChat. */
@@ -118,6 +127,8 @@ export interface ToolboxApi {
       message: string,
       allowEdits?: boolean,
       resumeSessionId?: string | null,
+      provider?: string,
+      model?: string,
     ): Promise<void>;
     /** Stop the running AI editor turn for a presentation. */
     stopChat(presId: string): Promise<void>;

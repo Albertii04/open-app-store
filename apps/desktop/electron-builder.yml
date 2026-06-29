@@ -21,6 +21,10 @@ extraResources:
       - '**/toolbox.json'
       - '**/icon.svg'
       - '**/dist/**'
+      - '**/template/**'
+      - '**/blocks/**'
+      - '**/blocks-user/**'
+      - '**/src/engine/**'
 mac:
   target:
     - dmg
@@ -33,15 +37,13 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  # Notarization is OFF: the current signing cert is "Apple Development", which
-  # notarytool rejects ("not signed with a valid Developer ID certificate").
-  # To enable, create a "Developer ID Application" cert in the Apple Developer
-  # portal, export it as a .p12, and update the MAC_CSC_LINK secret — then set:
-  #   notarize: { teamId: 7ULADLL579 }
-  # The release workflow already passes APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD.
-  # Until then the build signs only (auto-update applies; Gatekeeper warns on
-  # first install).
-  notarize: false
+  # Sign with the "Developer ID Application" cert (MAC_CSC_LINK / MAC_CSC_KEY_
+  # PASSWORD secrets) and notarize via notarytool (APPLE_ID / APPLE_APP_SPECIFIC_
+  # PASSWORD / APPLE_TEAM_ID passed by the release workflow). Required for
+  # Gatekeeper to accept a clean install AND for electron-updater (Squirrel.Mac)
+  # to apply auto-updates — an "Apple Development" cert is rejected by both.
+  notarize:
+    teamId: 7ULADLL579
 win:
   target:
     - nsis

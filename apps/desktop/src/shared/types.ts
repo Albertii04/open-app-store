@@ -1,4 +1,12 @@
 import type { CapabilityRequest, ResolvedApp, ToolManifest } from '@openappstore/sdk'
+import type { AiSettings, AiSettingsPatch, AiTestResult } from './ai-types.js'
+
+export interface ChatEvent {
+  kind: 'assistant' | 'tool' | 'done' | 'error'
+  text: string
+  /** On 'done': the agent session id, so the caller can resume this conversation. */
+  sessionId?: string
+}
 
 /** What the shell renderer needs to render a tool in the launcher/marketplace. */
 export interface ToolSummary {
@@ -109,6 +117,13 @@ export interface ShellApi {
   checkForUpdates(): Promise<void>
   /** This build's version string (e.g. "0.2.5"). */
   appVersion(): Promise<string>
+
+  // ---- AI provider settings ----
+  aiGet(): Promise<AiSettings>
+  aiSet(patch: AiSettingsPatch): Promise<AiSettings>
+  aiDetect(provider: string): Promise<string | null>
+  aiTest(provider: string): Promise<AiTestResult>
+  aiModels(provider: string): Promise<string[]>
 }
 
 declare global {

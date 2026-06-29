@@ -1,0 +1,153 @@
+{
+  "planPath": "docs/superpowers/plans/2026-06-28-shell-ai-provider-and-packaged-editing.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: Add Vitest to desktop",
+      "status": "completed",
+      "description": "Working unit-test runner. Files: apps/desktop/package.json, vitest.config.ts, ai/__tests__/smoke.test.ts. Verify: pnpm --filter @openappstore/desktop test"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: AI types + settings store",
+      "status": "completed",
+      "blockedBy": [
+        0
+      ],
+      "description": "Typed AI settings → userData/settings.json (ai key). Files: ai/types.ts, ai/settings.ts(+test)."
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: Binary detection",
+      "status": "completed",
+      "blockedBy": [
+        0
+      ],
+      "description": "Resolve provider binary: override→PATH→common dirs. Files: ai/detect.ts(+test)."
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: Claude adapter",
+      "status": "completed",
+      "blockedBy": [
+        1
+      ],
+      "description": "ProviderAdapter for claude (lift current logic). Files: ai/adapters/claude.ts(+test)."
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: Codex adapter",
+      "status": "completed",
+      "blockedBy": [
+        1
+      ],
+      "description": "codex exec --json → ChatEvent. Verify field names vs live output. Files: ai/adapters/codex.ts(+test)."
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: opencode adapter",
+      "status": "completed",
+      "blockedBy": [
+        1
+      ],
+      "description": "opencode run --format json → ChatEvent; temp read-only config. Files: ai/adapters/opencode.ts(+test)."
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: Registry + runAgent",
+      "status": "completed",
+      "blockedBy": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "description": "Resolve active adapter+binary, run turn, friendly error. Files: ai/registry.ts, ai/run.ts(+test)."
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: Shell IPC for AI settings",
+      "status": "completed",
+      "blockedBy": [
+        6
+      ],
+      "description": "aiGet/aiSet/aiDetect/aiTest IPC + preload + shared DTOs. Files: main/index.ts, preload/shell.ts, shared/types.ts, shared/ai-types.ts."
+    },
+    {
+      "id": 8,
+      "subject": "Task 8: Settings UI modal",
+      "status": "completed",
+      "blockedBy": [
+        7
+      ],
+      "description": "Shell Settings modal: active provider, path+model, Probar. Files: renderer/components/SettingsModal.vue, App.vue. Verify manual."
+    },
+    {
+      "id": 9,
+      "subject": "Task 9: Migrate sendChat to runAgent",
+      "status": "completed",
+      "blockedBy": [
+        6
+      ],
+      "description": "sendChat drives configured provider; AgentHandle; preserve done post-processing. Files: main/authoring.ts."
+    },
+    {
+      "id": 10,
+      "subject": "Task 10: Decks in userData",
+      "status": "completed",
+      "blockedBy": [
+        9
+      ],
+      "description": "presentationsDir→userData; seed example; ship template/blocks/engine/examples. Files: authoring.ts, index.ts, electron-builder.yml, presenter/examples."
+    },
+    {
+      "id": 11,
+      "subject": "Task 11: Runtime deck compiler",
+      "status": "completed",
+      "blockedBy": [
+        0
+      ],
+      "description": "compileDeck → ESM deck.js, externalize vue+engine (esbuild + @vue/compiler-sfc). High-risk; prefer maintained esbuild vue plugin. Files: presenter-build/compileDeck.ts(+test)."
+    },
+    {
+      "id": 12,
+      "subject": "Task 12: Host modules (vue+engine)",
+      "status": "completed",
+      "blockedBy": [
+        11
+      ],
+      "description": "Page provides vue+presenter-engine to compiled deck via import map→blob. Files: presenter/src/runtime/hostModules.ts, main.ts."
+    },
+    {
+      "id": 13,
+      "subject": "Task 13: Load compiled decks",
+      "status": "completed",
+      "blockedBy": [
+        10,
+        11,
+        12
+      ],
+      "description": "Replace import.meta.glob with compiled deck.js loading; broker compiledDeckUrl. Files: presentations/index.ts, main.ts, authoring.ts, broker.ts, sdk."
+    },
+    {
+      "id": 14,
+      "subject": "Task 14: Packaged-capable preview",
+      "status": "completed",
+      "blockedBy": [
+        13
+      ],
+      "description": "Compiled-deck preview; getPreviewUrl works packaged; reload after turn. Files: authoring.ts, LivePreview.vue, CodeEditor.vue, sdk."
+    },
+    {
+      "id": 15,
+      "subject": "Task 15: Compile in edit loop + e2e verify",
+      "status": "completed",
+      "blockedBy": [
+        14,
+        9
+      ],
+      "description": "Recompile after turn; full packaged e2e per provider. Files: authoring.ts. Verify: pnpm package + manual."
+    }
+  ],
+  "lastUpdated": "2026-06-29"
+}

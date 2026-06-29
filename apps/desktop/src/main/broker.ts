@@ -7,13 +7,15 @@ import {
   hasCapability,
   netAllowlist,
   type CapabilityName,
-  type ToolManifest,
 } from '@openappstore/sdk'
+import { getAiSettings } from './ai/settings.js'
+import { listModels } from './ai/models.js'
 import { toolStorage } from './storage.js'
 import {
   setSourcePath,
   saveAttachment,
   exportPresentation,
+  exportPresentationPdf,
   importPresentation,
   getThumbnail,
   createPresentation,
@@ -22,32 +24,24 @@ import {
   pickFolder,
   sendChat,
   stopChat,
+  compiledDeckSource,
 } from './authoring.js'
+import {
+  registerToolView,
+  unregisterToolView,
+  lookupToolView,
+} from './tool-registry.js'
 
-type ToolSource = 'builtin' | 'installed'
+export { registerToolView, unregisterToolView }
 
 /**
- * The capability broker. Maps each tool view's webContents to its manifest, and
- * authorizes every IPC call against that manifest before doing anything native.
- * A call from a tool without the declared capability rejects with
- * CAPABILITY_DENIED — this is the security spine of the whole shell.
+ * The capability broker. Authorizes every IPC call against the manifest
+ * registered for the calling webContents. A call from an unregistered or
+ * under-privileged view rejects with CAPABILITY_DENIED — this is the security
+ * spine of the whole shell.
  */
-const byWc = new Map<number, { manifest: ToolManifest; source: ToolSource }>()
-
-export function registerToolView(
-  webContentsId: number,
-  manifest: ToolManifest,
-  source: ToolSource,
-): void {
-  byWc.set(webContentsId, { manifest, source })
-}
-
-export function unregisterToolView(webContentsId: number): void {
-  byWc.delete(webContentsId)
-}
-
-function authorize(webContentsId: number, cap: CapabilityName): ToolManifest {
-  const entry = byWc.get(webContentsId)
+function authorize(webContentsId: number, cap: CapabilityName): import('@openappstore/sdk').ToolManifest {
+  const entry = lookupToolView(webContentsId)
   if (!entry) throw new Error(`${CAPABILITY_DENIED}: unknown caller`)
   if (!hasCapability(entry.manifest, cap))
     throw new Error(`${CAPABILITY_DENIED}: tool "${entry.manifest.id}" did not declare "${cap}"`)
@@ -170,7 +164,7 @@ export function installBroker(): void {
   })
   ipcMain.handle(
     IPC.authoringChat,
-    (e, presId: string, message: string, allowEdits?: boolean, resumeSessionId?: string | null) => {
+    (e, presId: string, message: string, allowEdits?: boolean, resumeSessionId?: string | null, provider?: string, model?: string) => {
       authorize(e.sender.id, 'authoring')
       return sendChat(
         presId,
@@ -180,9 +174,20 @@ export function installBroker(): void {
         },
         allowEdits ?? true,
         resumeSessionId,
+        provider,
+        model,
       )
     },
   )
+  ipcMain.handle(IPC.authoringAiGet, (e) => {
+    authorize(e.sender.id, 'authoring')
+    return getAiSettings()
+  })
+  ipcMain.handle(IPC.authoringAiModels, (e, provider: string) => {
+    authorize(e.sender.id, 'authoring')
+    const pid = provider as import('../shared/ai-types.js').ProviderId
+    return listModels(pid, getAiSettings().providers[pid]?.binPath)
+  })
   ipcMain.handle(IPC.authoringStop, (e, presId: string) => {
     authorize(e.sender.id, 'authoring')
     stopChat(presId)
@@ -206,6 +211,10 @@ export function installBroker(): void {
     authorize(e.sender.id, 'authoring')
     return exportPresentation(presId)
   })
+  ipcMain.handle(IPC.authoringExportPdf, (e, presId: string) => {
+    authorize(e.sender.id, 'authoring')
+    return exportPresentationPdf(presId)
+  })
   ipcMain.handle(IPC.authoringImport, (e) => {
     authorize(e.sender.id, 'authoring')
     return importPresentation()
@@ -213,5 +222,9 @@ export function installBroker(): void {
   ipcMain.handle(IPC.authoringThumbnail, (e, presId: string, force?: boolean) => {
     authorize(e.sender.id, 'authoring')
     return getThumbnail(presId, force)
+  })
+  ipcMain.handle(IPC.authoringCompiledDeck, (e, presId: string) => {
+    authorize(e.sender.id, 'authoring')
+    return compiledDeckSource(presId)
   })
 }

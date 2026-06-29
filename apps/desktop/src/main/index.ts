@@ -1,5 +1,6 @@
 import { BrowserWindow, app, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import windowStateKeeper from 'electron-window-state'
 import { installBroker } from './broker.js'
 import { stopAuthoring, restoreUserDecks, backupUserDecks } from './authoring.js'
@@ -13,7 +14,12 @@ import {
 } from './installer.js'
 import { getCatalog } from './catalog.js'
 import { initAutoUpdater, quitAndInstallUpdate, checkForUpdatesNow } from './updater.js'
+import { getAiSettings, setAiSettings } from './ai/settings.js'
+import { detectBinary } from './ai/detect.js'
+import { getAdapter } from './ai/registry.js'
+import { listModels } from './ai/models.js'
 import type { ToolManifest } from '@openappstore/sdk'
+import type { ProviderId } from '../shared/ai-types.js'
 
 const manager = new ToolManager()
 let mainWindow: BrowserWindow | null = null
@@ -99,6 +105,27 @@ function installShellIpc(): void {
   ipcMain.handle('shell:update:install', () => quitAndInstallUpdate())
   ipcMain.handle('shell:update:check', () => checkForUpdatesNow())
   ipcMain.handle('shell:appVersion', () => app.getVersion())
+
+  // AI provider settings (shell-owned).
+  ipcMain.handle('shell:aiGet', () => getAiSettings())
+  ipcMain.handle('shell:aiSet', (_e, patch) => setAiSettings(patch))
+  ipcMain.handle('shell:aiDetect', (_e, provider: ProviderId) =>
+    detectBinary(getAdapter(provider).binaryNames, getAiSettings().providers[provider]?.binPath),
+  )
+  ipcMain.handle('shell:aiModels', (_e, provider: ProviderId) =>
+    listModels(provider, getAiSettings().providers[provider]?.binPath),
+  )
+  ipcMain.handle('shell:aiTest', (_e, provider: ProviderId) => {
+    const adapter = getAdapter(provider)
+    const bin = detectBinary(adapter.binaryNames, getAiSettings().providers[provider]?.binPath)
+    if (!bin) return { ok: false, error: `${adapter.label} no encontrado` }
+    try {
+      const version = execFileSync(bin, adapter.versionArgs, { encoding: 'utf8', timeout: 5000 }).trim()
+      return { ok: true, version }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  })
 }
 
 app.on('second-instance', () => {
@@ -111,8 +138,8 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   migrateUserData() // restore tool-storage from a prior app name (rename-safe)
-  restoreUserDecks() // recover user decks from the userData backup into the source tree
-  backupUserDecks() // and mirror the current decks back out
+  restoreUserDecks() // ensure userData/presentations directory exists
+  backupUserDecks() // no-op: decks already live in userData directly
   installBroker()
   installShellIpc()
   await manager.load()

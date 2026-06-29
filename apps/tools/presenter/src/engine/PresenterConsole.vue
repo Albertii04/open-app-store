@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useDeckSync } from './composables/useDeckSync'
 import { useSliderState } from './composables/useSliderState'
 import type { Presentation } from './types'
@@ -17,6 +17,29 @@ const total = computed(() => slides.value.length)
 const current = computed(() => slides.value[idx.value])
 const next = computed(() => idx.value < total.value - 1 ? slides.value[idx.value + 1] : null)
 const currentControls = computed(() => current.value?.controls ?? [])
+
+// Preview iframes render the real deck, so vw/vh units resolve to the iframe
+// viewport — pixel-faithful to the audience view.
+// "Actual" is the live audience deck, kept in sync via BroadcastChannel; its src
+// is fixed (initial slide in the hash) so it never reloads while presenting.
+const presId = props.presentation.meta.id
+const audienceSrc = `${location.pathname}?pres=${presId}#${idx.value + 1}`
+// "Siguiente" is a static single slide; its src tracks idx (a small reload on
+// each step is fine for a peek-ahead preview).
+const nextSrc = computed(() =>
+  idx.value < total.value - 1 ? `${location.pathname}?solo=${presId}&n=${idx.value + 1}` : '',
+)
+
+// Presentation clicker (Logitech & co. send PageUp/PageDown). Off by default;
+// when ON, those keys (and arrows) drive the deck — otherwise they do nothing.
+const clickerOn = ref(false)
+function toggleClicker() {
+  clickerOn.value = !clickerOn.value
+}
+
+// Key detector — shows the last key the app received (key · code · keyCode), so a
+// clicker's actual emitted keys can be diagnosed live.
+const lastKey = ref('—')
 
 // Presenter controls are declared per-slide and driven generically, so the
 // console carries no presentation-specific logic. Pre-create a synced state per
@@ -36,21 +59,38 @@ function stateFor(key: string) {
   return st
 }
 
-function go(n: number) {
-  if (n < 0 || n >= total.value) return
-  idx.value = n
-  history.replaceState(null, '', `#${n + 1}`)
+// All navigation is delegated to the live deck (the "Actual" preview iframe) via
+// a deck-nav postMessage, so the console walks EXACTLY the same steps as the deck
+// — its next()/prev() handle declared controls AND slides' internal reveal steps
+// (tryAdvance), and the change syncs to every window. Keeps console ⇆ audience
+// behaviour identical.
+const frameEl = ref<HTMLIFrameElement | null>(null)
+function postNav(dir: 'next' | 'prev') {
+  frameEl.value?.contentWindow?.postMessage({ type: 'deck-nav', dir }, '*')
 }
-function advance() { go(idx.value + 1) }
-function back() { go(idx.value - 1) }
+function advance() { postNav('next') }
+function back() { postNav('prev') }
+// Mirror the synced index into this window's hash (for reload/deep-link).
+watch(idx, (v) => history.replaceState(null, '', `#${v + 1}`))
 
 function onKey(e: KeyboardEvent) {
-  // Slide navigation by keyboard disabled — use the UI buttons.
+  // Record every key for the detector (before any early-return below).
+  lastKey.value = `${e.key} · ${e.code} · ${e.keyCode}`
   switch (e.key) {
     case 't': case 'T':
-      toggleTimer(); break
+      toggleTimer(); return
     case 'r': case 'R':
-      resetTimer(); break
+      resetTimer(); return
+  }
+  // Slide navigation by keyboard works ONLY while the clicker is enabled.
+  // Clicker layout: PageUp (top) = forward through steps, PageDown (bottom) =
+  // backward through steps. Every step is walked — nothing is skipped.
+  if (!clickerOn.value) return
+  switch (e.key) {
+    case 'PageUp': case 'ArrowUp': case 'ArrowRight':
+      e.preventDefault(); advance(); break
+    case 'PageDown': case 'ArrowDown': case 'ArrowLeft':
+      e.preventDefault(); back(); break
   }
 }
 
@@ -104,35 +144,19 @@ const clockFmt = computed(() => {
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
 })
 
-// Stage scale via ResizeObserver — keeps inner 1600x900 visually fit to container
-let stageObserver: ResizeObserver | null = null
-function updateStageScales() {
-  document.querySelectorAll<HTMLElement>('.p-stage').forEach((el) => {
-    const w = el.clientWidth
-    if (w > 0) el.style.setProperty('--stage-scale', String(w / 1600))
-  })
-}
-
 onMounted(() => {
   document.addEventListener('keydown', onKey)
   clockInt = window.setInterval(() => { clockNow.value = new Date() }, 1000)
-  updateStageScales()
-  if (typeof ResizeObserver !== 'undefined') {
-    stageObserver = new ResizeObserver(() => updateStageScales())
-    document.querySelectorAll('.p-stage').forEach((el) => stageObserver!.observe(el))
-  }
-  window.addEventListener('resize', updateStageScales)
 })
 onUnmounted(() => {
   document.removeEventListener('keydown', onKey)
   if (clockInt) clearInterval(clockInt)
   stopTicker()
-  if (stageObserver) stageObserver.disconnect()
-  window.removeEventListener('resize', updateStageScales)
 })
 
 function openAudience() {
-  window.open(`${location.pathname}?pres=${props.presentation.meta.id}`, '_blank')
+  // &clicker → the audience window also responds to the presentation clicker.
+  window.open(`${location.pathname}?pres=${props.presentation.meta.id}&clicker`, '_blank')
 }
 </script>
 
@@ -143,6 +167,18 @@ function openAudience() {
         <span class="wm-primary">{{ wordmark?.primary ?? 'PRESENTER' }}</span><span class="wm-slash">/</span><span class="wm-suffix">PRESENTER</span>
       </div>
       <div class="p-status">
+        <div class="p-keydet" title="Última tecla recibida (key · code · keyCode)">
+          <span class="p-keydet-lbl">Tecla</span>
+          <span class="p-keydet-val">{{ lastKey }}</span>
+        </div>
+        <button
+          @click="toggleClicker"
+          class="p-btn p-clicker"
+          :class="{ on: clickerOn }"
+          :title="clickerOn ? 'Clicker activo: PageUp/PageDown pasan diapos' : 'Activar mando/clicker'"
+        >
+          {{ clickerOn ? '● Clicker ON' : 'Clicker' }}
+        </button>
         <button @click="openAudience" class="p-btn">Abrir vista audiencia ↗</button>
         <div class="p-clock">{{ clockFmt }}</div>
       </div>
@@ -152,9 +188,7 @@ function openAudience() {
       <section class="p-current">
         <div class="p-label">Actual <span class="num">{{ String(idx + 1).padStart(2, '0') }} / {{ String(total).padStart(2, '0') }}</span></div>
         <div class="p-stage">
-          <div class="p-stage-inner">
-            <component :is="current.component" :key="'cur-' + idx" />
-          </div>
+          <iframe ref="frameEl" :src="audienceSrc" class="p-stage-frame" title="Diapositiva actual"></iframe>
         </div>
         <div class="p-title">{{ current.title }}</div>
       </section>
@@ -163,9 +197,7 @@ function openAudience() {
         <div class="p-block">
           <div class="p-label">Siguiente</div>
           <div class="p-stage small">
-            <div class="p-stage-inner" v-if="next">
-              <component :is="next.component" :key="'next-' + idx" />
-            </div>
+            <iframe v-if="nextSrc" :src="nextSrc" class="p-stage-frame" title="Diapositiva siguiente"></iframe>
             <div class="p-stage-empty" v-else>— Fin —</div>
           </div>
           <div class="p-subtitle" v-if="next">{{ next.title }}</div>
@@ -343,13 +375,13 @@ function openAudience() {
 }
 .p-current .p-stage { flex: 1 1 auto; min-height: 0; }
 
-.p-stage-inner {
+.p-stage-frame {
   position: absolute;
-  top: 0; left: 0;
-  width: 1600px;
-  height: 900px;
-  transform-origin: top left;
-  transform: scale(var(--stage-scale, 0.5));
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* it's a preview — drive the deck from the console buttons/clicker. */
   pointer-events: none;
 }
 .p-stage-empty {
@@ -390,6 +422,7 @@ function openAudience() {
   font-size: 0.9rem;
   line-height: 1.55;
   color: var(--fg-secondary);
+  white-space: pre-wrap;
 }
 
 .p-controls {
@@ -420,6 +453,36 @@ function openAudience() {
 .p-btn-lg { padding: 0.85rem 1rem; font-weight: 600; }
 .p-btn.primary { background: rgba(54,72,110,0.55); color: var(--fg-primary); border-color: var(--brand-400); }
 .p-btn.primary:hover:not(:disabled) { background: rgba(54,72,110,0.8); }
+.p-clicker.on {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.7);
+  color: #86efac;
+}
+.p-clicker.on:hover { background: rgba(34, 197, 94, 0.24); color: #bbf7d0; }
+.p-keydet {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  background: rgba(15, 23, 42, 0.5);
+}
+.p-keydet-lbl {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--brand-300);
+}
+.p-keydet-val {
+  font-family: var(--font);
+  font-size: 0.72rem;
+  color: var(--fg-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 11rem;
+  white-space: nowrap;
+}
 
 .slider-block {
   border: 1px solid var(--brand-400);

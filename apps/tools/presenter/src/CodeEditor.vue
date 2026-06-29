@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { marked } from 'marked'
 import {
   type ChatMsg,
   type Conversation,
@@ -19,6 +20,14 @@ interface ChatEvent {
   text: string
   sessionId?: string
 }
+interface AiProviderConfig {
+  binPath?: string
+  model?: string
+}
+interface AiState {
+  active: string
+  providers: Record<string, AiProviderConfig>
+}
 interface Authoring {
   previewUrl(): Promise<string>
   sendChat(
@@ -26,11 +35,16 @@ interface Authoring {
     message: string,
     allowEdits?: boolean,
     resumeSessionId?: string | null,
+    provider?: string,
+    model?: string,
   ): Promise<void>
   stopChat(presId: string): Promise<void>
   onChat(cb: (e: ChatEvent) => void): () => void
   saveAttachment(presId: string, name: string, dataBase64: string): Promise<string>
   exportPresentation(presId: string): Promise<string | null>
+  exportPresentationPdf(presId: string): Promise<string | null>
+  aiGet(): Promise<AiState>
+  aiModels(provider: string): Promise<string[]>
 }
 
 interface Attachment {
@@ -41,6 +55,24 @@ interface Attachment {
 }
 
 const authoring = (window as unknown as { toolbox?: { authoring?: Authoring } }).toolbox?.authoring
+
+// ---- AI provider/model selector ----
+const PROVIDERS = [
+  { id: 'claude', label: 'Claude Code' },
+  { id: 'codex', label: 'OpenAI Codex' },
+  { id: 'opencode', label: 'opencode' },
+]
+const providerModels = ref<Record<string, string[]>>({})
+const defaults = ref<{ active: string; model: string }>({ active: 'claude', model: '' })
+
+async function loadModels(p: string): Promise<void> {
+  if (!authoring || providerModels.value[p]) return
+  try {
+    providerModels.value[p] = await authoring.aiModels(p)
+  } catch {
+    providerModels.value[p] = []
+  }
+}
 
 // ---- conversations (persisted per presentation) ----
 const conversations = ref<Conversation[]>([])
@@ -56,13 +88,34 @@ const messages = computed<ChatMsg[]>(() => active.value?.messages ?? [])
 // 'plan' = Claude analyses + proposes (no edits) until the user hits Implementar.
 const phase = computed<'plan' | 'build'>(() => active.value?.phase ?? 'build')
 
+// Computed provider/model for the active conversation (falls back to global defaults)
+const convProvider = computed(() => active.value?.provider || defaults.value.active)
+const convModel = computed(() => active.value?.model ?? '')
+
+function setProvider(p: string): void {
+  const c = active.value
+  if (!c) return
+  c.provider = p
+  c.model = ''
+  persist()
+  void loadModels(p)
+}
+
+function setModel(m: string): void {
+  const c = active.value
+  if (!c) return
+  c.model = m
+  persist()
+}
+
 const input = ref('')
 const busy = ref(false)
 // True only while Claude is actually writing files (not merely thinking/chatting),
 // so the viewer overlay shows on real edits — plan/chat turns leave it usable.
 const applying = ref(false)
-// Tool names that mutate the deck's files.
-const EDIT_TOOLS = /^(Write|Edit|MultiEdit|NotebookEdit)\b/
+// Tool labels that mutate the deck's files, across providers (claude: "Edit ·",
+// "Write ·"; codex: "edit ·"; opencode: "edit"/"write"). Case-insensitive.
+const EDIT_TOOLS = /^(write|edit|multiedit|notebookedit|patch|apply_patch)\b/i
 const attachments = ref<Attachment[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 const dragging = ref(false)
@@ -74,6 +127,8 @@ const scroller = ref<HTMLElement | null>(null)
 const frame = ref<HTMLIFrameElement | null>(null)
 const deckIdx = ref(0)
 const deckTotal = ref(0)
+const inputEl = ref<HTMLTextAreaElement | null>(null)
+let baseH = 0
 
 function persist(): void {
   void saveChats(props.presId, conversations.value)
@@ -146,7 +201,17 @@ function onAspectChange(): void {
 }
 
 const sharing = ref(false)
-async function share(): Promise<void> {
+// "Compartir" opens a centered modal (fixed + high z-index → renders above the
+// preview iframe) to choose zip vs PDF.
+const shareOpen = ref(false)
+function openShare(): void {
+  if (!sharing.value) shareOpen.value = true
+}
+function closeShare(): void {
+  shareOpen.value = false
+}
+async function exportZip(): Promise<void> {
+  closeShare()
   if (sharing.value || !authoring) return
   sharing.value = true
   try {
@@ -154,6 +219,20 @@ async function share(): Promise<void> {
     if (path) pushMsg({ role: 'tool', text: 'Exportado: ' + path })
   } catch (e) {
     pushMsg({ role: 'error', text: 'No se pudo exportar: ' + String(e) })
+  } finally {
+    sharing.value = false
+    scroll()
+  }
+}
+async function exportPdf(): Promise<void> {
+  closeShare()
+  if (sharing.value || !authoring) return
+  sharing.value = true
+  try {
+    const path = await authoring.exportPresentationPdf(props.presId)
+    if (path) pushMsg({ role: 'tool', text: 'Exportado PDF: ' + path })
+  } catch (e) {
+    pushMsg({ role: 'error', text: 'No se pudo exportar el PDF: ' + String(e) })
   } finally {
     sharing.value = false
     scroll()
@@ -203,6 +282,17 @@ onMounted(async () => {
   }
   await setActiveChatId(props.presId, activeId.value)
 
+  // Load global AI defaults, then pre-fetch models for the current provider
+  try {
+    const s = await authoring.aiGet()
+    defaults.value = { active: s.active, model: s.providers[s.active]?.model ?? '' }
+  } catch { /* ignore */ }
+  void loadModels(convProvider.value)
+
+  // Initialize textarea autosize after mount
+  await nextTick()
+  autosize()
+
   authoring.onChat((e) => {
     if (e.presId !== props.presId) return
     const c = active.value
@@ -220,15 +310,14 @@ onMounted(async () => {
       busy.value = false
       applying.value = false
       persist()
+      // Reload the preview iframe so it picks up the latest edits.
+      const base = location.href.split('?')[0].split('#')[0]
+      previewUrl.value = `${base}?pres=${props.presId}&nav=1&t=${Date.now()}`
     }
     scroll()
   })
-  try {
-    const base = await authoring.previewUrl()
-    previewUrl.value = `${base}?pres=${props.presId}&nav=1`
-  } catch {
-    /* preview may be unavailable */
-  }
+  const base = location.href.split('?')[0].split('#')[0]
+  previewUrl.value = `${base}?pres=${props.presId}&nav=1`
 
   // Freshly created from onboarding/import: analyse the brief in a fresh chat.
   const pending = await takePendingPrompt(props.presId)
@@ -263,7 +352,14 @@ async function doSend(text: string): Promise<void> {
   applying.value = false
   scroll()
   try {
-    await authoring.sendChat(props.presId, text, c.phase === 'build', c.sessionId)
+    await authoring.sendChat(
+      props.presId,
+      text,
+      c.phase === 'build',
+      c.sessionId,
+      c.provider || defaults.value.active,
+      c.model ?? defaults.value.model,
+    )
   } catch (e) {
     pushMsg({ role: 'error', text: String(e) })
     busy.value = false
@@ -363,6 +459,14 @@ function send(): void {
   input.value = ''
   attachments.value.forEach((a) => a.url && URL.revokeObjectURL(a.url))
   attachments.value = []
+  // Reset textarea height
+  nextTick(() => {
+    if (inputEl.value) {
+      inputEl.value.style.height = 'auto'
+      baseH = 0
+      autosize()
+    }
+  })
   void doSend(msg)
 }
 function implementar(): void {
@@ -384,6 +488,30 @@ function play(): void {
 }
 function goHome(): void {
   location.search = ''
+}
+
+function autosize(): void {
+  const el = inputEl.value
+  if (!el) return
+  if (!baseH) {
+    el.style.height = 'auto'
+    baseH = el.clientHeight || 36
+  }
+  el.style.height = 'auto'
+  const h = Math.min(el.scrollHeight, baseH * 2)
+  el.style.height = h + 'px'
+  el.style.overflowY = el.scrollHeight > baseH * 2 ? 'auto' : 'hidden'
+}
+
+function sanitize(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/\son\w+="[^"]*"/gi, '')
+    .replace(/\son\w+='[^']*'/gi, '')
+}
+
+function md(text: string): string {
+  return sanitize(marked.parse(text, { async: false, breaks: true }) as string)
 }
 </script>
 
@@ -440,6 +568,25 @@ function goHome(): void {
         <button class="ce-btn" @click="play">Reproducir ↗</button>
       </header>
 
+      <div class="ce-aibar">
+        <span class="ce-aibar-dot"></span>
+        <select
+          class="ce-aibar-sel"
+          :value="convProvider"
+          @change="setProvider(($event.target as HTMLSelectElement).value)"
+        >
+          <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
+        </select>
+        <select
+          class="ce-aibar-sel"
+          :value="convModel"
+          @change="setModel(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">Por defecto</option>
+          <option v-for="m in (providerModels[convProvider] || [])" :key="m" :value="m">{{ m }}</option>
+        </select>
+      </div>
+
       <div ref="scroller" class="ce-msgs">
         <div v-if="!messages.length" class="ce-hint">
           Dile a Claude qué quieres. Ejemplos:
@@ -453,9 +600,10 @@ function goHome(): void {
         </div>
         <div v-for="(m, i) in messages" :key="activeId + '-' + i" class="ce-msg" :class="m.role">
           <span v-if="m.role === 'tool'" class="ce-tool">⚙ {{ m.text }}</span>
+          <div v-else-if="m.role === 'assistant'" class="ce-md" v-html="md(m.text)"></div>
           <template v-else>{{ m.text }}</template>
         </div>
-        <div v-if="busy" class="ce-msg tool"><span class="ce-tool">Claude trabajando…</span></div>
+        <div v-if="busy" class="ce-msg tool"><span class="ce-tool">{{ PROVIDERS.find(p => p.id === convProvider)?.label ?? 'IA' }} trabajando…</span></div>
       </div>
 
       <div v-if="phase === 'plan'" class="ce-plan">
@@ -488,11 +636,13 @@ function goHome(): void {
             </svg>
           </button>
           <textarea
+            ref="inputEl"
             v-model="input"
             rows="1"
             :placeholder="phase === 'plan' ? 'Comenta o ajusta el plan…' : 'Escribe a Claude… (Enter envía)'"
             @keydown.enter.exact.prevent="send"
             @paste="onPaste"
+            @input="autosize"
           />
           <button v-if="busy" class="ce-icon stop" title="Parar" @click="stop">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -534,9 +684,9 @@ function goHome(): void {
           </select>
           <button
             class="ce-share"
-            title="Exportar como proyecto (.zip)"
+            title="Compartir presentación"
             :disabled="sharing"
-            @click="share"
+            @click="openShare"
           >
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18" cy="5" r="3" />
@@ -573,6 +723,23 @@ function goHome(): void {
         </transition>
       </div>
     </main>
+
+    <!-- Share picker: a centered modal (fixed + high z-index → above the
+         preview iframe) with the two export choices. -->
+    <div v-if="shareOpen" class="ce-share-modal" @click.self="closeShare">
+      <div class="ce-share-card" role="dialog" aria-label="Compartir presentación">
+        <h3 class="ce-share-title">Compartir presentación</h3>
+        <button class="ce-share-opt" @click="exportZip">
+          <strong>Exportar proyecto (.zip)</strong>
+          <span>Proyecto Vite editable con el código de la presentación.</span>
+        </button>
+        <button class="ce-share-opt" @click="exportPdf">
+          <strong>Exportar PDF</strong>
+          <span>Una página por diapositiva, listo para compartir o imprimir.</span>
+        </button>
+        <button class="ce-share-cancel" @click="closeShare">Cancelar</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -745,6 +912,46 @@ function goHome(): void {
   color: #f3a3a3;
   background: rgba(243, 163, 163, 0.08);
 }
+/* ---- AI provider/model bar ---- */
+.ce-aibar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+.ce-aibar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-400, #60a5fa);
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+.ce-aibar-sel {
+  appearance: none;
+  padding: 0.2rem 1.2rem 0.2rem 0.45rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font-size: 0.72rem;
+  color: var(--slate-300);
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")
+    no-repeat right 0.35rem center;
+  background-color: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  outline: none;
+}
+.ce-aibar-sel:hover {
+  border-color: var(--brand-500);
+  color: var(--fg-primary);
+}
+.ce-aibar-sel option {
+  background: var(--slate-900, #0f172a);
+  color: var(--fg-secondary);
+}
 .ce-msgs {
   flex: 1;
   overflow-y: auto;
@@ -798,7 +1005,9 @@ function goHome(): void {
 .ce-msg.error {
   align-self: flex-start;
   color: #f3a3a3;
-  background: rgba(243, 163, 163, 0.08);
+  background: rgba(220, 60, 60, 0.1);
+  border-left: 3px solid rgba(220, 80, 80, 0.6);
+  border-radius: 0 6px 6px 0;
 }
 .ce-input {
   border-top: 1px solid var(--rule);
@@ -1012,6 +1221,66 @@ function goHome(): void {
 .ce-share:disabled {
   opacity: 0.5;
 }
+.ce-share-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(8, 11, 18, 0.6);
+  backdrop-filter: blur(2px);
+}
+.ce-share-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(28rem, 100%);
+  padding: 1.1rem;
+  background: var(--slate-900);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+}
+.ce-share-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+.ce-share-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  color: var(--fg-secondary);
+}
+.ce-share-opt strong {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+.ce-share-opt span {
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+}
+.ce-share-opt:hover {
+  border-color: var(--brand-500);
+  background: var(--slate-800, rgba(255, 255, 255, 0.05));
+}
+.ce-share-cancel {
+  align-self: flex-end;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.74rem;
+  color: var(--fg-muted);
+}
+.ce-share-cancel:hover {
+  color: var(--fg-primary);
+}
 .ce-nav {
   width: 28px;
   height: 24px;
@@ -1149,5 +1418,87 @@ function goHome(): void {
 .ce-apply-enter-from,
 .ce-apply-leave-to {
   opacity: 0;
+}
+/* ---- Markdown rendering for assistant messages ---- */
+.ce-md {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: inherit;
+}
+.ce-md :deep(p) {
+  margin: 0 0 0.45rem;
+}
+.ce-md :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.ce-md :deep(ul),
+.ce-md :deep(ol) {
+  margin: 0.2rem 0 0.45rem;
+  padding-left: 1.3rem;
+}
+.ce-md :deep(li) {
+  margin: 0.15rem 0;
+}
+.ce-md :deep(strong) {
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+.ce-md :deep(em) {
+  font-style: italic;
+}
+.ce-md :deep(h1),
+.ce-md :deep(h2),
+.ce-md :deep(h3),
+.ce-md :deep(h4) {
+  margin: 0.6rem 0 0.25rem;
+  font-weight: 600;
+  color: var(--fg-primary);
+  line-height: 1.3;
+}
+.ce-md :deep(h1) { font-size: 1rem; }
+.ce-md :deep(h2) { font-size: 0.93rem; }
+.ce-md :deep(h3) { font-size: 0.88rem; }
+.ce-md :deep(h4) { font-size: 0.85rem; }
+.ce-md :deep(a) {
+  color: var(--brand-300);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ce-md :deep(a:hover) {
+  color: var(--brand-200, #bfdbfe);
+}
+.ce-md :deep(code) {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.8em;
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--brand-200, #bfdbfe);
+}
+.ce-md :deep(pre) {
+  margin: 0.4rem 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow-x: auto;
+  white-space: pre;
+  word-break: normal;
+}
+.ce-md :deep(pre code) {
+  background: none;
+  padding: 0;
+  font-size: 0.78em;
+  color: var(--fg-secondary);
+}
+.ce-md :deep(blockquote) {
+  margin: 0.35rem 0;
+  padding: 0.25rem 0.6rem;
+  border-left: 3px solid var(--brand-600);
+  color: var(--fg-muted);
+}
+.ce-md :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 0.5rem 0;
 }
 </style>
