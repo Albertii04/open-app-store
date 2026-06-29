@@ -4,19 +4,36 @@ type ToolboxAuthoring = { authoring?: { compiledDeck(id: string): Promise<string
 
 /**
  * Find the toolbox bridge. The preload only exposes `window.toolbox` on the
- * shell's tool frame; when the deck renders inside the editor's preview iframe
- * (a same-origin child of that frame) the bridge lives on the parent/top window
- * instead, so fall back to those.
+ * shell's tool frame. A deck can render in contexts that lack it:
+ *  - the editor's preview iframe → bridge is on `window.parent` / `window.top`
+ *  - a Play/Presenter/Audience window opened via `window.open` → bridge is on
+ *    `window.opener` (walk the opener chain, since console→audience nests).
+ * All are same-origin, so reaching across is allowed.
  */
 function findToolbox(): ToolboxAuthoring | undefined {
-  const w = window as unknown as { toolbox?: ToolboxAuthoring }
-  if (w.toolbox?.authoring?.compiledDeck) return w.toolbox
-  for (const frame of [window.parent, window.top]) {
+  const has = (f: unknown): ToolboxAuthoring | undefined => {
     try {
-      const tb = (frame as unknown as { toolbox?: ToolboxAuthoring })?.toolbox
-      if (tb?.authoring?.compiledDeck) return tb
+      const tb = (f as { toolbox?: ToolboxAuthoring } | null)?.toolbox
+      return tb?.authoring?.compiledDeck ? tb : undefined
     } catch {
-      /* cross-origin — ignore */
+      return undefined // cross-origin
+    }
+  }
+  const self = has(window)
+  if (self) return self
+  for (const f of [window.parent, window.top]) {
+    const tb = has(f)
+    if (tb) return tb
+  }
+  // Walk the opener chain (Play/Presenter/Audience windows).
+  let opener: Window | null = window.opener
+  for (let i = 0; opener && i < 5; i++) {
+    const tb = has(opener) ?? has(opener.parent) ?? has(opener.top)
+    if (tb) return tb
+    try {
+      opener = opener.opener
+    } catch {
+      break
     }
   }
   return undefined
