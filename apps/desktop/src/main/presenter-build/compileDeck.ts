@@ -1,6 +1,6 @@
 import { build, type Plugin } from 'esbuild'
 import { parse as parseSfc, compileScript, compileTemplate, compileStyle } from '@vue/compiler-sfc'
-import { existsSync, readFileSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
@@ -18,16 +18,18 @@ function ensureEsbuildBinary(): void {
   esbuildPathChecked = true
   try {
     if (!app?.isPackaged) return
-    const unpacked = app.getAppPath().replace(/app\.asar$/, 'app.asar.unpacked')
-    const bin = join(
-      unpacked,
-      'node_modules',
-      '@esbuild',
-      `${process.platform}-${process.arch}`,
-      'bin',
-      'esbuild',
-    )
-    if (existsSync(bin)) process.env.ESBUILD_BINARY_PATH = bin
+    if (process.env.ESBUILD_BINARY_PATH && existsSync(process.env.ESBUILD_BINARY_PATH)) return
+    // Deterministic: the unpacked tree sits beside app.asar under Resources.
+    const root = join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@esbuild')
+    // Preferred exact platform-arch, then any installed @esbuild/<dir>/bin/esbuild.
+    const candidates = [join(root, `${process.platform}-${process.arch}`, 'bin', 'esbuild')]
+    try {
+      for (const d of readdirSync(root)) candidates.push(join(root, d, 'bin', 'esbuild'))
+    } catch {
+      /* root missing — fall through */
+    }
+    const bin = candidates.find((p) => existsSync(p))
+    if (bin) process.env.ESBUILD_BINARY_PATH = bin
   } catch {
     /* ignore — fall back to esbuild's default resolution */
   }
