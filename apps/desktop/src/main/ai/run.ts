@@ -15,13 +15,11 @@ export function runAgent(
   emit: (e: ChatEvent) => void,
 ): AgentHandle {
   const adapter = getAdapter(id)
-  // When an explicit path is provided, do not fall back to dir scanning — if
-  // that path is wrong the user needs a clear error, not a silent fallback.
-  const bin = detectBinary(
-    adapter.binaryNames,
-    overrideBin,
-    overrideBin !== undefined ? [] : undefined,
-  )
+  // Use the configured path when it resolves, otherwise auto-detect. We do NOT
+  // hard-fail on a set-but-missing path: binaries move when a CLI updates (e.g.
+  // codex relocating out of an nvm dir), and silently finding the installed one
+  // is far better UX than telling the user it's "not found" when it is.
+  const bin = detectBinary(adapter.binaryNames, overrideBin)
   if (!bin) {
     emit({
       kind: 'error',
