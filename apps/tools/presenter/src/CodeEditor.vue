@@ -33,8 +33,6 @@ interface Authoring {
   saveAttachment(presId: string, name: string, dataBase64: string): Promise<string>
   exportPresentation(presId: string): Promise<string | null>
   exportPresentationPdf(presId: string): Promise<string | null>
-  aiGet(): Promise<{ active: string; providers: Record<string, { binPath?: string; model?: string }> }>
-  aiSet(patch: { active?: string; providers?: Record<string, { binPath?: string; model?: string }> }): Promise<unknown>
 }
 
 interface Attachment {
@@ -59,16 +57,6 @@ const active = computed(() => conversations.value.find((c) => c.id === activeId.
 const messages = computed<ChatMsg[]>(() => active.value?.messages ?? [])
 // 'plan' = Claude analyses + proposes (no edits) until the user hits Implementar.
 const phase = computed<'plan' | 'build'>(() => active.value?.phase ?? 'build')
-
-const PROVIDERS = [
-  { id: 'claude', label: 'Claude Code' },
-  { id: 'codex', label: 'OpenAI Codex' },
-  { id: 'opencode', label: 'opencode' },
-]
-const provider = ref('claude')
-const model = ref('')
-// Local copy of all provider configs so onProviderChange can restore model
-const providerConfigs = ref<Record<string, { binPath?: string; model?: string }>>({})
 
 const input = ref('')
 const busy = ref(false)
@@ -242,16 +230,6 @@ onMounted(async () => {
     return
   }
   await setActiveChatId(props.presId, activeId.value)
-
-  // Load provider/model settings
-  try {
-    const s = await authoring.aiGet()
-    provider.value = s.active
-    providerConfigs.value = s.providers
-    model.value = s.providers[s.active]?.model ?? ''
-  } catch {
-    // Not fatal — fall back to defaults
-  }
 
   // Initialize textarea autosize after mount
   await nextTick()
@@ -447,27 +425,6 @@ function goHome(): void {
   location.search = ''
 }
 
-async function saveProvider(): Promise<void> {
-  if (!authoring) return
-  const patch = {
-    active: provider.value,
-    providers: { [provider.value]: { model: model.value || undefined } },
-  }
-  try {
-    await authoring.aiSet(patch)
-    // Keep local copy in sync
-    providerConfigs.value[provider.value] = { ...providerConfigs.value[provider.value], model: model.value || undefined }
-  } catch {
-    // Non-fatal
-  }
-}
-
-async function onProviderChange(): Promise<void> {
-  // Restore model for newly selected provider from local cache
-  model.value = providerConfigs.value[provider.value]?.model ?? ''
-  await saveProvider()
-}
-
 function autosize(): void {
   const el = inputEl.value
   if (!el) return
@@ -562,7 +519,7 @@ function md(text: string): string {
           <div v-else-if="m.role === 'assistant'" class="ce-md" v-html="md(m.text)"></div>
           <template v-else>{{ m.text }}</template>
         </div>
-        <div v-if="busy" class="ce-msg tool"><span class="ce-tool">{{ PROVIDERS.find(p => p.id === provider)?.label ?? 'IA' }} trabajando…</span></div>
+        <div v-if="busy" class="ce-msg tool"><span class="ce-tool">Trabajando…</span></div>
       </div>
 
       <div v-if="phase === 'plan'" class="ce-plan">
@@ -571,12 +528,6 @@ function md(text: string): string {
       </div>
 
       <div class="ce-input">
-        <div class="ce-prov">
-          <select v-model="provider" @change="onProviderChange">
-            <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
-          </select>
-          <input v-model="model" @change="saveProvider" placeholder="modelo (auto)" />
-        </div>
         <div v-if="attachments.length" class="ce-atts">
           <div v-for="(a, i) in attachments" :key="i" class="ce-att" :title="a.name">
             <img v-if="a.isImage && a.url" :src="a.url" class="ce-att-img" alt="" />
@@ -933,44 +884,6 @@ function md(text: string): string {
   background: rgba(220, 60, 60, 0.1);
   border-left: 3px solid rgba(220, 80, 80, 0.6);
   border-radius: 0 6px 6px 0;
-}
-.ce-prov {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.ce-prov select,
-.ce-prov input {
-  appearance: none;
-  padding: 0.2rem 0.45rem;
-  border: 1px solid var(--rule);
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--fg-muted);
-  font-size: 0.7rem;
-  font-family: inherit;
-  outline: none;
-}
-.ce-prov select {
-  padding-right: 1.2rem;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 0.3rem center;
-  background-color: rgba(255, 255, 255, 0.02);
-}
-.ce-prov select option {
-  background: var(--slate-900);
-  color: var(--fg-secondary);
-}
-.ce-prov input {
-  flex: 1;
-  min-width: 0;
-}
-.ce-prov select:hover,
-.ce-prov input:hover,
-.ce-prov input:focus {
-  border-color: rgba(148, 168, 202, 0.4);
-  color: var(--fg-secondary);
 }
 .ce-input {
   border-top: 1px solid var(--rule);
