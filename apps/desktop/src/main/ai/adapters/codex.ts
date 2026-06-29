@@ -1,7 +1,6 @@
-import { spawn } from 'node:child_process'
 import type { AgentRunOptions, AgentHandle, ProviderAdapter } from '../types.js'
 import type { ChatEvent } from '../../../shared/types.js'
-import { agentEnv } from '../detect.js'
+import { streamAgent } from './streamAgent.js'
 
 export function buildCodexArgs(o: AgentRunOptions): string[] {
   const args = ['exec', '--json']
@@ -59,25 +58,6 @@ export const codexAdapter: ProviderAdapter = {
   supportsExternalReadDirs: false,
   versionArgs: ['--version'],
   run(bin, o, emit): AgentHandle {
-    const child = spawn(bin, buildCodexArgs(o), { cwd: o.cwd, env: agentEnv(), stdio: ['ignore', 'pipe', 'pipe'] })
-    // codex logs verbosely to stderr; drain it so its pipe buffer can't fill and
-    // deadlock the child. (Real errors also arrive as JSON on stdout.)
-    child.stderr?.on('data', () => {})
-    const parse = makeCodexParser()
-    let buf = ''
-    child.stdout.on('data', (chunk: Buffer) => {
-      buf += chunk.toString()
-      let nl: number
-      while ((nl = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, nl).trim()
-        buf = buf.slice(nl + 1)
-        if (line) for (const ev of parse(line)) emit(ev)
-      }
-    })
-    child.on('error', (e) => emit({ kind: 'error', text: e.message }))
-    child.on('exit', (_c, signal) => {
-      if (signal) emit({ kind: 'error', text: 'Detenido.' })
-    })
-    return { stop: () => child.kill() }
+    return streamAgent(bin, buildCodexArgs(o), o.cwd, makeCodexParser(), emit)
   },
 }

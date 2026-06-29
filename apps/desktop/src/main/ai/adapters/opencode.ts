@@ -1,9 +1,8 @@
-import { spawn } from 'node:child_process'
 import { existsSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentRunOptions, AgentHandle, ProviderAdapter } from '../types.js'
 import type { ChatEvent } from '../../../shared/types.js'
-import { agentEnv } from '../detect.js'
+import { streamAgent } from './streamAgent.js'
 
 export function buildOpencodeArgs(o: AgentRunOptions): string[] {
   const args = ['run', '--format', 'json', '--dir', o.cwd]
@@ -89,27 +88,6 @@ export const opencodeAdapter: ProviderAdapter = {
         }
       }
     }
-    const child = spawn(bin, buildOpencodeArgs(o), { cwd: o.cwd, env: agentEnv(), stdio: ['ignore', 'pipe', 'pipe'] })
-    child.stderr?.on('data', () => {})
-    const parse = makeOpencodeParser()
-    let buf = ''
-    child.stdout.on('data', (chunk: Buffer) => {
-      buf += chunk.toString()
-      let nl: number
-      while ((nl = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, nl).trim()
-        buf = buf.slice(nl + 1)
-        if (line) for (const ev of parse(line)) emit(ev)
-      }
-    })
-    child.on('error', (e) => {
-      cleanup()
-      emit({ kind: 'error', text: e.message })
-    })
-    child.on('exit', (_c, signal) => {
-      cleanup()
-      if (signal) emit({ kind: 'error', text: 'Detenido.' })
-    })
-    return { stop: () => child.kill() }
+    return streamAgent(bin, buildOpencodeArgs(o), o.cwd, makeOpencodeParser(), emit, cleanup)
   },
 }
