@@ -23,6 +23,7 @@ const defaultForm = (): FormSettings => ({
 const settings = ref<FormSettings>(defaultForm())
 const loaded = ref(false)
 const testing = ref<Record<string, string>>({})
+const models = ref<Record<string, string[]>>({})
 
 async function load(): Promise<void> {
   const data = await window.shellApi.aiGet()
@@ -35,6 +36,16 @@ async function load(): Promise<void> {
     },
   }
   loaded.value = true
+  // Load model lists in parallel; ignore individual failures
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        models.value[id] = await window.shellApi.aiModels(id)
+      } catch {
+        models.value[id] = []
+      }
+    }),
+  )
 }
 onMounted(load)
 
@@ -73,12 +84,19 @@ async function test(id: ProviderId): Promise<void> {
           v-model="settings.providers[id].binPath"
           @change="save"
         />
-        <input
-          class="model-input"
-          placeholder="Modelo (opcional)"
-          v-model="settings.providers[id].model"
-          @change="save"
-        />
+        <select
+          class="model-sel"
+          :value="settings.providers[id].model"
+          @change="settings.providers[id].model = ($event.target as HTMLSelectElement).value; save()"
+        >
+          <option value="">Por defecto</option>
+          <!-- If the saved model isn't in the fetched list, show it so it isn't lost -->
+          <option
+            v-if="settings.providers[id].model && !(models[id] ?? []).includes(settings.providers[id].model)"
+            :value="settings.providers[id].model"
+          >{{ settings.providers[id].model }}</option>
+          <option v-for="m in (models[id] ?? [])" :key="m" :value="m">{{ m }}</option>
+        </select>
       </section>
     </div>
   </div>
@@ -157,7 +175,7 @@ async function test(id: ProviderId): Promise<void> {
   min-width: 60px;
 }
 .path,
-.model-input {
+.model-sel {
   width: 100%;
   padding: 6px 8px;
   background: #0c0c10;
@@ -168,8 +186,20 @@ async function test(id: ProviderId): Promise<void> {
   font-size: 13px;
 }
 .path:focus,
-.model-input:focus {
+.model-sel:focus {
   outline: none;
   border-color: #4a4a6a;
+}
+.model-sel {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+.model-sel option {
+  background: #15151b;
+  color: #eee;
 }
 </style>

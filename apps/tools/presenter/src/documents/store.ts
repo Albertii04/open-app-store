@@ -86,6 +86,10 @@ export interface Conversation {
   sessionId: string | null
   phase: 'plan' | 'build'
   messages: ChatMsg[]
+  /** Per-conversation AI provider override (falls back to global default when absent). */
+  provider?: string
+  /** Per-conversation model override (falls back to global default when absent). */
+  model?: string
 }
 
 const CHATS_PREFIX = 'chats:'

@@ -20,6 +20,14 @@ interface ChatEvent {
   text: string
   sessionId?: string
 }
+interface AiProviderConfig {
+  binPath?: string
+  model?: string
+}
+interface AiState {
+  active: string
+  providers: Record<string, AiProviderConfig>
+}
 interface Authoring {
   previewUrl(): Promise<string>
   sendChat(
@@ -27,12 +35,16 @@ interface Authoring {
     message: string,
     allowEdits?: boolean,
     resumeSessionId?: string | null,
+    provider?: string,
+    model?: string,
   ): Promise<void>
   stopChat(presId: string): Promise<void>
   onChat(cb: (e: ChatEvent) => void): () => void
   saveAttachment(presId: string, name: string, dataBase64: string): Promise<string>
   exportPresentation(presId: string): Promise<string | null>
   exportPresentationPdf(presId: string): Promise<string | null>
+  aiGet(): Promise<AiState>
+  aiModels(provider: string): Promise<string[]>
 }
 
 interface Attachment {
@@ -43,6 +55,24 @@ interface Attachment {
 }
 
 const authoring = (window as unknown as { toolbox?: { authoring?: Authoring } }).toolbox?.authoring
+
+// ---- AI provider/model selector ----
+const PROVIDERS = [
+  { id: 'claude', label: 'Claude Code' },
+  { id: 'codex', label: 'OpenAI Codex' },
+  { id: 'opencode', label: 'opencode' },
+]
+const providerModels = ref<Record<string, string[]>>({})
+const defaults = ref<{ active: string; model: string }>({ active: 'claude', model: '' })
+
+async function loadModels(p: string): Promise<void> {
+  if (!authoring || providerModels.value[p]) return
+  try {
+    providerModels.value[p] = await authoring.aiModels(p)
+  } catch {
+    providerModels.value[p] = []
+  }
+}
 
 // ---- conversations (persisted per presentation) ----
 const conversations = ref<Conversation[]>([])
@@ -57,6 +87,26 @@ const active = computed(() => conversations.value.find((c) => c.id === activeId.
 const messages = computed<ChatMsg[]>(() => active.value?.messages ?? [])
 // 'plan' = Claude analyses + proposes (no edits) until the user hits Implementar.
 const phase = computed<'plan' | 'build'>(() => active.value?.phase ?? 'build')
+
+// Computed provider/model for the active conversation (falls back to global defaults)
+const convProvider = computed(() => active.value?.provider || defaults.value.active)
+const convModel = computed(() => active.value?.model ?? '')
+
+function setProvider(p: string): void {
+  const c = active.value
+  if (!c) return
+  c.provider = p
+  c.model = ''
+  persist()
+  void loadModels(p)
+}
+
+function setModel(m: string): void {
+  const c = active.value
+  if (!c) return
+  c.model = m
+  persist()
+}
 
 const input = ref('')
 const busy = ref(false)
@@ -232,6 +282,13 @@ onMounted(async () => {
   }
   await setActiveChatId(props.presId, activeId.value)
 
+  // Load global AI defaults, then pre-fetch models for the current provider
+  try {
+    const s = await authoring.aiGet()
+    defaults.value = { active: s.active, model: s.providers[s.active]?.model ?? '' }
+  } catch { /* ignore */ }
+  void loadModels(convProvider.value)
+
   // Initialize textarea autosize after mount
   await nextTick()
   autosize()
@@ -295,7 +352,14 @@ async function doSend(text: string): Promise<void> {
   applying.value = false
   scroll()
   try {
-    await authoring.sendChat(props.presId, text, c.phase === 'build', c.sessionId)
+    await authoring.sendChat(
+      props.presId,
+      text,
+      c.phase === 'build',
+      c.sessionId,
+      c.provider || defaults.value.active,
+      c.model ?? defaults.value.model,
+    )
   } catch (e) {
     pushMsg({ role: 'error', text: String(e) })
     busy.value = false
@@ -504,6 +568,25 @@ function md(text: string): string {
         <button class="ce-btn" @click="play">Reproducir ↗</button>
       </header>
 
+      <div class="ce-aibar">
+        <span class="ce-aibar-dot"></span>
+        <select
+          class="ce-aibar-sel"
+          :value="convProvider"
+          @change="setProvider(($event.target as HTMLSelectElement).value)"
+        >
+          <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
+        </select>
+        <select
+          class="ce-aibar-sel"
+          :value="convModel"
+          @change="setModel(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">Por defecto</option>
+          <option v-for="m in (providerModels[convProvider] || [])" :key="m" :value="m">{{ m }}</option>
+        </select>
+      </div>
+
       <div ref="scroller" class="ce-msgs">
         <div v-if="!messages.length" class="ce-hint">
           Dile a Claude qué quieres. Ejemplos:
@@ -520,7 +603,7 @@ function md(text: string): string {
           <div v-else-if="m.role === 'assistant'" class="ce-md" v-html="md(m.text)"></div>
           <template v-else>{{ m.text }}</template>
         </div>
-        <div v-if="busy" class="ce-msg tool"><span class="ce-tool">Trabajando…</span></div>
+        <div v-if="busy" class="ce-msg tool"><span class="ce-tool">{{ PROVIDERS.find(p => p.id === convProvider)?.label ?? 'IA' }} trabajando…</span></div>
       </div>
 
       <div v-if="phase === 'plan'" class="ce-plan">
@@ -828,6 +911,46 @@ function md(text: string): string {
 .ce-chatitem-del:hover {
   color: #f3a3a3;
   background: rgba(243, 163, 163, 0.08);
+}
+/* ---- AI provider/model bar ---- */
+.ce-aibar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+.ce-aibar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-400, #60a5fa);
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+.ce-aibar-sel {
+  appearance: none;
+  padding: 0.2rem 1.2rem 0.2rem 0.45rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font-size: 0.72rem;
+  color: var(--slate-300);
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")
+    no-repeat right 0.35rem center;
+  background-color: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  outline: none;
+}
+.ce-aibar-sel:hover {
+  border-color: var(--brand-500);
+  color: var(--fg-primary);
+}
+.ce-aibar-sel option {
+  background: var(--slate-900, #0f172a);
+  color: var(--fg-secondary);
 }
 .ce-msgs {
   flex: 1;
