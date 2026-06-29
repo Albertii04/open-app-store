@@ -1,30 +1,38 @@
-import * as esbuild from 'esbuild-wasm'
-import type { Plugin, Loader } from 'esbuild-wasm'
+import type { Plugin, Loader } from 'esbuild'
 import { parse as parseSfc, compileScript, compileTemplate, compileStyle } from '@vue/compiler-sfc'
-import { readFileSync, writeFileSync, statSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from 'node:fs'
 import { join, dirname, resolve, extname } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { app } from 'electron'
 
 /**
- * Compile decks with esbuild-WASM (in-process WebAssembly), NOT the native
- * esbuild binary. The native binary is spawned as a child process, and in a
- * packaged Electron app its path resolves inside app.asar (a file) → the spawn
- * fails with ENOTDIR. WASM runs in-process — no spawn, no asar/path issues, and
- * dev and packaged behave identically. esbuild.wasm is read as bytes (works
- * straight from the asar). initialize() runs once per process.
+ * Load esbuild AFTER pointing it at its unpacked native binary. esbuild captures
+ * `process.env.ESBUILD_BINARY_PATH` into a module-level constant at import time,
+ * so the env MUST be set before the module evaluates — hence a dynamic import
+ * here rather than a static top-level one. In a packaged app the binary lives in
+ * app.asar.unpacked (the in-asar copy can't be spawned → ENOTDIR). No-op in dev.
  */
-let initPromise: Promise<void> | null = null
-function ensureInit(): Promise<void> {
-  if (!initPromise) {
-    // In Node, esbuild-wasm loads its own esbuild.wasm via fs (works straight
-    // from the asar — it's a file read, not a spawn). worker:false runs it in
-    // this thread. (`wasmModule`/`wasmURL` are browser-only.)
-    initPromise = esbuild.initialize({ worker: false }).catch((e: unknown) => {
-      // Tolerate "initialize called more than once" (same process, e.g. tests).
-      if (!String(e).includes('more than once')) throw e
-    })
+let esbuildPromise: Promise<typeof import('esbuild')> | null = null
+function loadEsbuild(): Promise<typeof import('esbuild')> {
+  if (!esbuildPromise) {
+    try {
+      if (app?.isPackaged && !process.env.ESBUILD_BINARY_PATH) {
+        const root = join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@esbuild')
+        const cands = [join(root, `${process.platform}-${process.arch}`, 'bin', 'esbuild')]
+        try {
+          for (const d of readdirSync(root)) cands.push(join(root, d, 'bin', 'esbuild'))
+        } catch {
+          /* no @esbuild dir */
+        }
+        const bin = cands.find((p) => existsSync(p))
+        if (bin) process.env.ESBUILD_BINARY_PATH = bin
+      }
+    } catch {
+      /* fall back to esbuild's own resolution */
+    }
+    esbuildPromise = import('esbuild')
   }
-  return initPromise
+  return esbuildPromise
 }
 
 export type CompileResult =
@@ -185,9 +193,9 @@ export async function compileDeckAt(deckDir: string): Promise<CompileResult> {
   const externals = new Set<string>()
 
   try {
-    await ensureInit()
-    // WASM can't read/write the fs: produce the bundle in memory (write:false +
-    // the fsPlugin feeds/reads files) and write the result with Node fs.
+    const esbuild = await loadEsbuild()
+    // Build in memory (write:false) and write the result ourselves — keeps the
+    // fsPlugin in charge of all file I/O and avoids esbuild touching outdir.
     const result = await esbuild.build({
       entryPoints: [entry],
       bundle: true,
