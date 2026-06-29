@@ -115,6 +115,10 @@ export interface ToolboxApi {
       mode: 'ready' | 'ai';
       prompt?: string;
     } | null>;
+    /** Get the current AI provider settings. */
+    aiGet(): Promise<{ active: string; providers: Record<string, { binPath?: string; model?: string }> }>;
+    /** Patch the AI provider settings. */
+    aiSet(patch: { active?: string; providers?: Record<string, { binPath?: string; model?: string }> }): Promise<unknown>;
     /** Send a chat message to the AI editor (Claude Code) for a presentation;
      *  it edits the folder's code. Resolves when the turn finishes. Stream
      *  progress via onChat. */

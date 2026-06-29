@@ -24,6 +24,7 @@ import {
   stopChat,
   compiledDeckSource,
 } from './authoring.js'
+import { getAiSettings, setAiSettings } from './ai/settings.js'
 import {
   registerToolView,
   unregisterToolView,
@@ -213,5 +214,13 @@ export function installBroker(): void {
   ipcMain.handle(IPC.authoringCompiledDeck, (e, presId: string) => {
     authorize(e.sender.id, 'authoring')
     return compiledDeckSource(presId)
+  })
+  ipcMain.handle(IPC.authoringAiGet, (e) => {
+    authorize(e.sender.id, 'authoring')
+    return getAiSettings()
+  })
+  ipcMain.handle(IPC.authoringAiSet, (e, patch) => {
+    authorize(e.sender.id, 'authoring')
+    return setAiSettings(patch)
   })
 }

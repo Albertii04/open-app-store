@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { marked } from 'marked'
 import {
   type ChatMsg,
   type Conversation,
@@ -32,6 +33,8 @@ interface Authoring {
   saveAttachment(presId: string, name: string, dataBase64: string): Promise<string>
   exportPresentation(presId: string): Promise<string | null>
   exportPresentationPdf(presId: string): Promise<string | null>
+  aiGet(): Promise<{ active: string; providers: Record<string, { binPath?: string; model?: string }> }>
+  aiSet(patch: { active?: string; providers?: Record<string, { binPath?: string; model?: string }> }): Promise<unknown>
 }
 
 interface Attachment {
@@ -57,6 +60,16 @@ const messages = computed<ChatMsg[]>(() => active.value?.messages ?? [])
 // 'plan' = Claude analyses + proposes (no edits) until the user hits Implementar.
 const phase = computed<'plan' | 'build'>(() => active.value?.phase ?? 'build')
 
+const PROVIDERS = [
+  { id: 'claude', label: 'Claude Code' },
+  { id: 'codex', label: 'OpenAI Codex' },
+  { id: 'opencode', label: 'opencode' },
+]
+const provider = ref('claude')
+const model = ref('')
+// Local copy of all provider configs so onProviderChange can restore model
+const providerConfigs = ref<Record<string, { binPath?: string; model?: string }>>({})
+
 const input = ref('')
 const busy = ref(false)
 // True only while Claude is actually writing files (not merely thinking/chatting),
@@ -75,6 +88,8 @@ const scroller = ref<HTMLElement | null>(null)
 const frame = ref<HTMLIFrameElement | null>(null)
 const deckIdx = ref(0)
 const deckTotal = ref(0)
+const inputEl = ref<HTMLTextAreaElement | null>(null)
+let baseH = 0
 
 function persist(): void {
   void saveChats(props.presId, conversations.value)
@@ -227,6 +242,20 @@ onMounted(async () => {
     return
   }
   await setActiveChatId(props.presId, activeId.value)
+
+  // Load provider/model settings
+  try {
+    const s = await authoring.aiGet()
+    provider.value = s.active
+    providerConfigs.value = s.providers
+    model.value = s.providers[s.active]?.model ?? ''
+  } catch {
+    // Not fatal — fall back to defaults
+  }
+
+  // Initialize textarea autosize after mount
+  await nextTick()
+  autosize()
 
   authoring.onChat((e) => {
     if (e.presId !== props.presId) return
@@ -387,6 +416,14 @@ function send(): void {
   input.value = ''
   attachments.value.forEach((a) => a.url && URL.revokeObjectURL(a.url))
   attachments.value = []
+  // Reset textarea height
+  nextTick(() => {
+    if (inputEl.value) {
+      inputEl.value.style.height = 'auto'
+      baseH = 0
+      autosize()
+    }
+  })
   void doSend(msg)
 }
 function implementar(): void {
@@ -408,6 +445,51 @@ function play(): void {
 }
 function goHome(): void {
   location.search = ''
+}
+
+async function saveProvider(): Promise<void> {
+  if (!authoring) return
+  const patch = {
+    active: provider.value,
+    providers: { [provider.value]: { model: model.value || undefined } },
+  }
+  try {
+    await authoring.aiSet(patch)
+    // Keep local copy in sync
+    providerConfigs.value[provider.value] = { ...providerConfigs.value[provider.value], model: model.value || undefined }
+  } catch {
+    // Non-fatal
+  }
+}
+
+async function onProviderChange(): Promise<void> {
+  // Restore model for newly selected provider from local cache
+  model.value = providerConfigs.value[provider.value]?.model ?? ''
+  await saveProvider()
+}
+
+function autosize(): void {
+  const el = inputEl.value
+  if (!el) return
+  if (!baseH) {
+    el.style.height = 'auto'
+    baseH = el.clientHeight || 36
+  }
+  el.style.height = 'auto'
+  const h = Math.min(el.scrollHeight, baseH * 2)
+  el.style.height = h + 'px'
+  el.style.overflowY = el.scrollHeight > baseH * 2 ? 'auto' : 'hidden'
+}
+
+function sanitize(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/\son\w+="[^"]*"/gi, '')
+    .replace(/\son\w+='[^']*'/gi, '')
+}
+
+function md(text: string): string {
+  return sanitize(marked.parse(text, { async: false, breaks: true }) as string)
 }
 </script>
 
@@ -477,9 +559,10 @@ function goHome(): void {
         </div>
         <div v-for="(m, i) in messages" :key="activeId + '-' + i" class="ce-msg" :class="m.role">
           <span v-if="m.role === 'tool'" class="ce-tool">⚙ {{ m.text }}</span>
+          <div v-else-if="m.role === 'assistant'" class="ce-md" v-html="md(m.text)"></div>
           <template v-else>{{ m.text }}</template>
         </div>
-        <div v-if="busy" class="ce-msg tool"><span class="ce-tool">Claude trabajando…</span></div>
+        <div v-if="busy" class="ce-msg tool"><span class="ce-tool">{{ PROVIDERS.find(p => p.id === provider)?.label ?? 'IA' }} trabajando…</span></div>
       </div>
 
       <div v-if="phase === 'plan'" class="ce-plan">
@@ -488,6 +571,12 @@ function goHome(): void {
       </div>
 
       <div class="ce-input">
+        <div class="ce-prov">
+          <select v-model="provider" @change="onProviderChange">
+            <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
+          </select>
+          <input v-model="model" @change="saveProvider" placeholder="modelo (auto)" />
+        </div>
         <div v-if="attachments.length" class="ce-atts">
           <div v-for="(a, i) in attachments" :key="i" class="ce-att" :title="a.name">
             <img v-if="a.isImage && a.url" :src="a.url" class="ce-att-img" alt="" />
@@ -512,11 +601,13 @@ function goHome(): void {
             </svg>
           </button>
           <textarea
+            ref="inputEl"
             v-model="input"
             rows="1"
             :placeholder="phase === 'plan' ? 'Comenta o ajusta el plan…' : 'Escribe a Claude… (Enter envía)'"
             @keydown.enter.exact.prevent="send"
             @paste="onPaste"
+            @input="autosize"
           />
           <button v-if="busy" class="ce-icon stop" title="Parar" @click="stop">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -839,7 +930,47 @@ function goHome(): void {
 .ce-msg.error {
   align-self: flex-start;
   color: #f3a3a3;
-  background: rgba(243, 163, 163, 0.08);
+  background: rgba(220, 60, 60, 0.1);
+  border-left: 3px solid rgba(220, 80, 80, 0.6);
+  border-radius: 0 6px 6px 0;
+}
+.ce-prov {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ce-prov select,
+.ce-prov input {
+  appearance: none;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--fg-muted);
+  font-size: 0.7rem;
+  font-family: inherit;
+  outline: none;
+}
+.ce-prov select {
+  padding-right: 1.2rem;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.3rem center;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+.ce-prov select option {
+  background: var(--slate-900);
+  color: var(--fg-secondary);
+}
+.ce-prov input {
+  flex: 1;
+  min-width: 0;
+}
+.ce-prov select:hover,
+.ce-prov input:hover,
+.ce-prov input:focus {
+  border-color: rgba(148, 168, 202, 0.4);
+  color: var(--fg-secondary);
 }
 .ce-input {
   border-top: 1px solid var(--rule);
@@ -1250,5 +1381,87 @@ function goHome(): void {
 .ce-apply-enter-from,
 .ce-apply-leave-to {
   opacity: 0;
+}
+/* ---- Markdown rendering for assistant messages ---- */
+.ce-md {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: inherit;
+}
+.ce-md :deep(p) {
+  margin: 0 0 0.45rem;
+}
+.ce-md :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.ce-md :deep(ul),
+.ce-md :deep(ol) {
+  margin: 0.2rem 0 0.45rem;
+  padding-left: 1.3rem;
+}
+.ce-md :deep(li) {
+  margin: 0.15rem 0;
+}
+.ce-md :deep(strong) {
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+.ce-md :deep(em) {
+  font-style: italic;
+}
+.ce-md :deep(h1),
+.ce-md :deep(h2),
+.ce-md :deep(h3),
+.ce-md :deep(h4) {
+  margin: 0.6rem 0 0.25rem;
+  font-weight: 600;
+  color: var(--fg-primary);
+  line-height: 1.3;
+}
+.ce-md :deep(h1) { font-size: 1rem; }
+.ce-md :deep(h2) { font-size: 0.93rem; }
+.ce-md :deep(h3) { font-size: 0.88rem; }
+.ce-md :deep(h4) { font-size: 0.85rem; }
+.ce-md :deep(a) {
+  color: var(--brand-300);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ce-md :deep(a:hover) {
+  color: var(--brand-200, #bfdbfe);
+}
+.ce-md :deep(code) {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.8em;
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--brand-200, #bfdbfe);
+}
+.ce-md :deep(pre) {
+  margin: 0.4rem 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow-x: auto;
+  white-space: pre;
+  word-break: normal;
+}
+.ce-md :deep(pre code) {
+  background: none;
+  padding: 0;
+  font-size: 0.78em;
+  color: var(--fg-secondary);
+}
+.ce-md :deep(blockquote) {
+  margin: 0.35rem 0;
+  padding: 0.25rem 0.6rem;
+  border-left: 3px solid var(--brand-600);
+  color: var(--fg-muted);
+}
+.ce-md :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 0.5rem 0;
 }
 </style>
