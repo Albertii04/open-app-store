@@ -106,12 +106,18 @@ function makeVuePlugin(): Plugin {
           }
         }
 
-        const scopeId = `data-v-${randomUUID().slice(0, 8)}`
+        // Vue's SFC compiler convention: compileScript/compileTemplate take the
+        // RAW id (they stamp elements with `data-v-<id>`), while compileStyle
+        // takes the FULL `data-v-<id>` scope id for its `[data-v-…]` selectors.
+        // Passing the same string to both (as before) double-prefixed the script
+        // side, so scoped styles never matched and slides rendered unstyled.
+        const id = randomUUID().slice(0, 8)
+        const scopeId = `data-v-${id}`
+        const hasScoped = descriptor.styles.some((s) => s.scoped)
         let code: string
 
         // Compile each <style> block (honoring `scoped`) and self-inject it, so
-        // component styles survive in the standalone Blob bundle. Uses the same
-        // scopeId as the script/template so scoped selectors match.
+        // component styles survive in the standalone Blob bundle.
         let styleInject = ''
         for (const style of descriptor.styles) {
           const compiledStyle = compileStyle({
@@ -125,19 +131,24 @@ function makeVuePlugin(): Plugin {
         }
 
         if (descriptor.scriptSetup || descriptor.script) {
-          // inlineTemplate:true makes compileScript embed the render fn in setup
-          // — produces a single clean `export default _defineComponent({...})`
+          // genDefaultAs binds the component to `_sfc_main` (instead of a bare
+          // `export default`) so we can attach `__scopeId` — compileScript does
+          // NOT stamp scoped attributes itself; Vue applies them at render time
+          // from the component's __scopeId. Without this, scoped CSS never
+          // matches and slides render unstyled.
           const compiled = compileScript(descriptor, {
-            id: scopeId,
+            id,
             inlineTemplate: true,
+            genDefaultAs: '_sfc_main',
           })
-          code = compiled.content + styleInject
+          const scopeLine = hasScoped ? `\n_sfc_main.__scopeId = ${JSON.stringify(scopeId)}` : ''
+          code = `${compiled.content}${scopeLine}${styleInject}\nexport default _sfc_main`
         } else if (descriptor.template) {
           // Template-only component (no script): compile template separately
           const compiled = compileTemplate({
             source: descriptor.template.content,
             filename,
-            id: scopeId,
+            id,
             scoped: descriptor.styles.some((s) => s.scoped),
           })
           if (compiled.errors.length > 0) {
@@ -147,8 +158,10 @@ function makeVuePlugin(): Plugin {
               })),
             }
           }
-          // Wrap template render fn as a simple component
-          code = `${compiled.code}\nexport default { render }${styleInject}`
+          // Wrap template render fn as a simple component (+ scopeId so scoped
+          // styles match).
+          const scopeProp = hasScoped ? `, __scopeId: ${JSON.stringify(scopeId)}` : ''
+          code = `${compiled.code}\nexport default { render${scopeProp} }${styleInject}`
         } else {
           // Empty SFC — export empty object
           code = `export default {}${styleInject}`
