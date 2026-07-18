@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-18T03:30:00.185Z",
+  "generatedAt": "2026-07-18T08:07:27.443Z",
   "apps": [
     {
       "id": "albert.presenter",
@@ -20,7 +20,7 @@
         "repo": "https://github.com/Albertii04/open-app-store"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-07-18T03:29:58.598Z"
+      "resolvedAt": "2026-07-18T08:07:25.625Z"
     },
     {
       "id": "org.gimp",
@@ -43,7 +43,7 @@
         "repo": "https://gitlab.gnome.org/GNOME/gimp"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-07-18T03:29:58.602Z"
+      "resolvedAt": "2026-07-18T08:07:25.629Z"
     },
     {
       "id": "org.localsend",
@@ -74,11 +74,11 @@
       },
       "metrics": {
         "repo": "https://github.com/localsend/localsend",
-        "stars": 85446,
+        "stars": 85457,
         "lastCommit": "2026-07-18T01:13:20Z"
       },
       "resolvedFrom": "localsend/localsend",
-      "resolvedAt": "2026-07-18T03:29:58.602Z",
+      "resolvedAt": "2026-07-18T08:07:25.629Z",
       "notes": "### Summary\r\n\r\nA small interim release before WebRTC is stable (https://github.com/localsend/localsend/pull/2204)\r\n\r\n- feat: add advanced setting to filter network interfaces (@Tienisto)\r\n- feat(mobile): swipe gesture to select multiple media files (@Tienisto)\r\n- feat(windows): when pasting an image, automatically convert it to PNG (@BrianMwit)\r\n- feat(android): add option to open gallery when image/video was automatically saved (@Tienisto)\r\n- fix: path traversal vulnerability when saving files (@Tienisto)\r\n- fix: black screen when tapping on \"Back\" twice in \"Share via link\" (@Tienisto)\r\n- fix(macos): window disappears on command key when minimize to tray is enabled (@Tienisto)\r\n- fix(windows): do not poll local IP resulting in unwanted location permissions (@Tienisto)\r\n\r\n[Full Changelog](https://github.com/localsend/localsend/blob/main/app/assets/CHANGELOG.md)\r\n",
       "images": [
         "https://localsend.org/img/screenshot-iphone.webp",
@@ -117,11 +117,11 @@
       },
       "metrics": {
         "repo": "https://github.com/jgraph/drawio-desktop",
-        "stars": 62155,
+        "stars": 62159,
         "lastCommit": "2026-07-17T19:58:40Z"
       },
       "resolvedFrom": "jgraph/drawio-desktop",
-      "resolvedAt": "2026-07-18T03:29:59.194Z",
+      "resolvedAt": "2026-07-18T08:07:26.288Z",
       "notes": "## Releases Notes for 30.3.14\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v30.3.14/draw.io-30.3.14-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v30.3.14/draw.io-30.3.14-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v30.3.14/draw.io-universal-30.3.14.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v30.3.14/drawio-amd64-30.3.14.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v30.3.14/drawio-x86_64-30.3.14.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v30.3.14/drawio-x86_64-30.3.14.rpm)\r\n\r\nWindows intel x32 releases are marked -ia32-\r\n\r\n**ChangeLog:**\r\n\r\n- Uses electron 42.7.0\r\n- #2235 , #1026 , #1278 , #2312 , #1245 \r\n- Updates to [draw.io core 30.3.14](https://github.com/jgraph/drawio/blob/v30.3.14/ChangeLog).",
       "images": [],
       "publishedAt": "2026-07-17T22:11:13Z"
@@ -152,11 +152,11 @@
       },
       "metrics": {
         "repo": "https://github.com/logseq/logseq",
-        "stars": 43945,
+        "stars": 43947,
         "lastCommit": "2026-07-18T02:56:22Z"
       },
       "resolvedFrom": "logseq/logseq",
-      "resolvedAt": "2026-07-18T03:29:59.726Z",
+      "resolvedAt": "2026-07-18T08:07:26.896Z",
       "notes": "# Logseq 2.0 Beta (DB version) is here! 🎉\r\n\r\nAfter a long wait, our first Logseq 2.0 beta release is finally here. We know many of you have been looking forward to trying it, and we’re excited to put it in your hands!\r\n\r\nThis is an early beta, so you may encounter some rough edges. We’d love for you to give it a try and tell us what works, what doesn’t, and what you’d like to see next. Your feedback will help us improve Logseq and shape the stable release.\r\n\r\nBefore getting started, please take a moment to read these updates:\r\n\r\n- [Live roadmap](https://logseq.io/p/NX4mc_ggEV)\r\n- [Big update: Logseq is splitting into two versions](https://logseq.io/p/e3YDyX5AYr)\r\n\r\nAs with any beta, please back up your important data before testing. You can share feedback and report issues through our [GitHub issue tracker](https://github.com/logseq/db-test/issues).\r\n\r\nThank you for your patience, encouragement, and continued support. We’re excited to begin this next chapter with you! ❤️",
       "images": [
         "https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif",
