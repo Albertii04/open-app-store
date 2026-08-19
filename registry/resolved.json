@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-18T18:54:59.471Z",
+  "generatedAt": "2026-08-19T01:51:52.049Z",
   "apps": [
     {
       "id": "albert.presenter",
@@ -20,7 +20,7 @@
         "repo": "https://github.com/Albertii04/open-app-store"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-08-18T18:54:57.705Z"
+      "resolvedAt": "2026-08-19T01:51:50.534Z"
     },
     {
       "id": "org.gimp",
@@ -43,7 +43,7 @@
         "repo": "https://gitlab.gnome.org/GNOME/gimp"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-08-18T18:54:57.710Z"
+      "resolvedAt": "2026-08-19T01:51:50.538Z"
     },
     {
       "id": "org.localsend",
@@ -61,11 +61,11 @@
       "downloads": {},
       "metrics": {
         "repo": "https://github.com/localsend/localsend",
-        "stars": 88651,
-        "lastCommit": "2026-08-17T23:20:00Z"
+        "stars": 88671,
+        "lastCommit": "2026-08-19T01:45:43Z"
       },
       "resolvedFrom": "localsend/localsend",
-      "resolvedAt": "2026-08-18T18:54:57.710Z",
+      "resolvedAt": "2026-08-19T01:51:50.539Z",
       "notes": "Android+iOS only hotfix update. See [1.18.0](https://github.com/localsend/localsend/releases/tag/v1.18.0) for the full release.\r\n\r\n- fix: revert button icon sizes to 24\r\n- fix: when sending a message that is accepted immediately, a ghost device list tile appears\r\n- fix(mobile): when sending a link message, the \"Open\" button overflows\r\n- fix(android): add missing ACCESS_LOCAL_NETWORK permission that is required for Android 17+\r\n- i18n: add Belarusian (@pavel-miniutka), Irish (@aindriu80)",
       "images": [
         "https://localsend.org/img/sponsors/tesmu.svg",
@@ -106,11 +106,11 @@
       },
       "metrics": {
         "repo": "https://github.com/jgraph/drawio-desktop",
-        "stars": 62672,
+        "stars": 62674,
         "lastCommit": "2026-08-14T09:09:47Z"
       },
       "resolvedFrom": "jgraph/drawio-desktop",
-      "resolvedAt": "2026-08-18T18:54:58.312Z",
+      "resolvedAt": "2026-08-19T01:51:51.120Z",
       "notes": "## Releases Notes for 31.1.8\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v31.1.8/draw.io-31.1.8-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v31.1.8/draw.io-31.1.8-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v31.1.8/draw.io-universal-31.1.8.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v31.1.8/drawio-amd64-31.1.8.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v31.1.8/drawio-x86_64-31.1.8.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v31.1.8/drawio-x86_64-31.1.8.rpm)\r\n\r\nWindows intel x32 releases are marked -ia32-\r\n\r\n**ChangeLog:**\r\n\r\n- Uses electron 42.8.1\r\n- Updates to [draw.io core 31.1.8](https://github.com/jgraph/drawio/blob/v31.1.8/ChangeLog).",
       "images": [],
       "publishedAt": "2026-08-07T10:38:40Z"
@@ -141,11 +141,11 @@
       },
       "metrics": {
         "repo": "https://github.com/logseq/logseq",
-        "stars": 44498,
+        "stars": 44506,
         "lastCommit": "2026-08-18T18:45:38Z"
       },
       "resolvedFrom": "logseq/logseq",
-      "resolvedAt": "2026-08-18T18:54:58.870Z",
+      "resolvedAt": "2026-08-19T01:51:51.577Z",
       "notes": "# Logseq 2.0 Beta (DB version) is here! 🎉\r\n\r\nAfter a long wait, our first Logseq 2.0 beta release is finally here. We know many of you have been looking forward to trying it, and we’re excited to put it in your hands!\r\n\r\nThis is an early beta, so you may encounter some rough edges. We’d love for you to give it a try and tell us what works, what doesn’t, and what you’d like to see next. Your feedback will help us improve Logseq and shape the stable release.\r\n\r\nBefore getting started, please take a moment to read these updates:\r\n\r\n- [Live roadmap](https://logseq.io/p/NX4mc_ggEV)\r\n- [Big update: Logseq is splitting into two versions](https://logseq.io/p/e3YDyX5AYr)\r\n\r\nAs with any beta, please back up your important data before testing. You can share feedback and report issues through our [GitHub issue tracker](https://github.com/logseq/db-test/issues).\r\n\r\nThank you for your patience, encouragement, and continued support. We’re excited to begin this next chapter with you! ❤️",
       "images": [
         "https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif",
