@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-21T13:09:40.876Z",
+  "generatedAt": "2026-08-21T18:55:10.364Z",
   "apps": [
     {
       "id": "albert.presenter",
@@ -20,7 +20,7 @@
         "repo": "https://github.com/Albertii04/open-app-store"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-08-21T13:09:39.003Z"
+      "resolvedAt": "2026-08-21T18:55:08.018Z"
     },
     {
       "id": "org.gimp",
@@ -43,7 +43,7 @@
         "repo": "https://gitlab.gnome.org/GNOME/gimp"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-08-21T13:09:39.007Z"
+      "resolvedAt": "2026-08-21T18:55:08.022Z"
     },
     {
       "id": "org.localsend",
@@ -57,16 +57,29 @@
         "AirDrop",
         "Snapdrop"
       ],
-      "version": "1.18.1",
-      "downloads": {},
+      "version": "1.18.2",
+      "downloads": {
+        "darwin-arm64": {
+          "url": "https://github.com/localsend/localsend/releases/download/v1.18.2/LocalSend-1.18.2.dmg"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/localsend/localsend/releases/download/v1.18.2/LocalSend-1.18.2.dmg"
+        },
+        "win32-x64": {
+          "url": "https://github.com/localsend/localsend/releases/download/v1.18.2/LocalSend-CLI-1.18.2-windows-arm-64.exe"
+        },
+        "linux-x64": {
+          "url": "https://github.com/localsend/localsend/releases/download/v1.18.2/LocalSend-1.18.2-linux-x86-64.AppImage"
+        }
+      },
       "metrics": {
         "repo": "https://github.com/localsend/localsend",
-        "stars": 88874,
-        "lastCommit": "2026-08-21T13:08:01Z"
+        "stars": 88896,
+        "lastCommit": "2026-08-21T14:02:00Z"
       },
       "resolvedFrom": "localsend/localsend",
-      "resolvedAt": "2026-08-21T13:09:39.007Z",
-      "notes": "Android+iOS only hotfix update. See [1.18.0](https://github.com/localsend/localsend/releases/tag/v1.18.0) for the full release.\r\n\r\n- fix: revert button icon sizes to 24\r\n- fix: when sending a message that is accepted immediately, a ghost device list tile appears\r\n- fix(mobile): when sending a link message, the \"Open\" button overflows\r\n- fix(android): add missing ACCESS_LOCAL_NETWORK permission that is required for Android 17+\r\n- i18n: add Belarusian (@pavel-miniutka), Irish (@aindriu80)",
+      "resolvedAt": "2026-08-21T18:55:08.022Z",
+      "notes": "This release fixes compatibility issues with 1.17.0 and earlier.\r\nUnfortunately, the Windows EXE installer is not published yet (#3270).\r\n\r\n- feat: drag and drop files into the \"Receive via link\" browser page\r\n- feat(desktop): allow customizing the web share pages by placing HTML files in a `web` folder next to the executable\r\n- feat(cli): add version info to the Windows executable\r\n- feat(linux): set actual version in the AppImage\r\n- security: do not follow HTTP redirects sent by peers\r\n- fix: restore compatibility with 1.17.0 and earlier versions on missing multicast networks\r\n- fix: devices running 1.17.0 and earlier could not add 1.18.0+ device as favorite\r\n- fix: ignore proxies, fixes \"TLS info not found\" when a system proxy (e.g. Shadowrocket) is enabled\r\n- fix: automatically restart the HTTP / multicast server when it dies or when the app resumes\r\n- fix: drag and drop with a mix of folders and files\r\n- fix: during transfer, add bottom padding when Advanced is open (@Chethan616)\r\n- fix: do not crash at startup when the executable path cannot be resolved (@Shlomo116)\r\n- fix(android): ignore unknown or invalid file modification times when reading files\r\n- i18n: add Armenian",
       "images": [
         "https://localsend.org/img/sponsors/tesmu.svg",
         "https://localsend.org/img/screenshot-iphone.webp",
@@ -74,8 +87,7 @@
         "https://hosted.weblate.org/widget/localsend/app/multi-auto.svg",
         "https://contrib.rocks/image?repo=localsend/localsend"
       ],
-      "publishedAt": "2026-08-12T13:11:17Z",
-      "warning": "no asset matched: darwin-arm64, darwin-x64, win32-x64, linux-x64"
+      "publishedAt": "2026-08-21T14:02:01Z"
     },
     {
       "id": "com.jgraph.drawio",
@@ -106,11 +118,11 @@
       },
       "metrics": {
         "repo": "https://github.com/jgraph/drawio-desktop",
-        "stars": 62726,
+        "stars": 62732,
         "lastCommit": "2026-08-20T23:35:48Z"
       },
       "resolvedFrom": "jgraph/drawio-desktop",
-      "resolvedAt": "2026-08-21T13:09:39.685Z",
+      "resolvedAt": "2026-08-21T18:55:08.834Z",
       "notes": "## Releases Notes for 31.3.1\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v31.3.1/draw.io-31.3.1-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v31.3.1/draw.io-31.3.1-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v31.3.1/draw.io-universal-31.3.1.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v31.3.1/drawio-amd64-31.3.1.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v31.3.1/drawio-x86_64-31.3.1.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v31.3.1/drawio-x86_64-31.3.1.rpm)\r\n\r\nWindows intel x32 releases are marked -ia32-\r\n\r\n**ChangeLog:**\r\n\r\n- Uses electron 42.9.3\r\n- Signs the bundled Electron DLLs on Windows, so Windows Defender ASR ransomware protection no longer blocks the app after installs and updates [jgraph/drawio-desktop#2509]\r\n- Builds the Windows no-installer zip with the full signed and fused configuration [jgraph/drawio-desktop#2509]\r\n- Stops the update download window staying on top of other applications and covering the install prompt [jgraph/drawio-desktop#2516]\r\n- Stops repeated manual update checks producing duplicate update dialogs\r\n- Fixes opening multi-page PDFs exported by releases before 30.3.6, where the diagram is embedded as a PDF file attachment\r\n- Updates to [draw.io core 31.3.1](https://github.com/jgraph/drawio/blob/v31.3.1/ChangeLog).",
       "images": [],
       "publishedAt": "2026-08-21T07:49:15Z"
@@ -141,11 +153,11 @@
       },
       "metrics": {
         "repo": "https://github.com/logseq/logseq",
-        "stars": 44549,
+        "stars": 44552,
         "lastCommit": "2026-08-21T08:05:30Z"
       },
       "resolvedFrom": "logseq/logseq",
-      "resolvedAt": "2026-08-21T13:09:40.250Z",
+      "resolvedAt": "2026-08-21T18:55:09.612Z",
       "notes": "# Logseq 2.0 Beta (DB version) is here! 🎉\r\n\r\nAfter a long wait, our first Logseq 2.0 beta release is finally here. We know many of you have been looking forward to trying it, and we’re excited to put it in your hands!\r\n\r\nThis is an early beta, so you may encounter some rough edges. We’d love for you to give it a try and tell us what works, what doesn’t, and what you’d like to see next. Your feedback will help us improve Logseq and shape the stable release.\r\n\r\nBefore getting started, please take a moment to read these updates:\r\n\r\n- [Live roadmap](https://logseq.io/p/NX4mc_ggEV)\r\n- [Big update: Logseq is splitting into two versions](https://logseq.io/p/e3YDyX5AYr)\r\n\r\nAs with any beta, please back up your important data before testing. You can share feedback and report issues through our [GitHub issue tracker](https://github.com/logseq/db-test/issues).\r\n\r\nThank you for your patience, encouragement, and continued support. We’re excited to begin this next chapter with you! ❤️",
       "images": [
         "https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif",
