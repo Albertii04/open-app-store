@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-24T17:09:20.819Z",
+  "generatedAt": "2026-09-24T21:29:52.036Z",
   "apps": [
     {
       "id": "albert.presenter",
@@ -20,7 +20,7 @@
         "repo": "https://github.com/Albertii04/open-app-store"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-09-24T17:09:18.800Z"
+      "resolvedAt": "2026-09-24T21:29:49.903Z"
     },
     {
       "id": "org.gimp",
@@ -43,7 +43,7 @@
         "repo": "https://gitlab.gnome.org/GNOME/gimp"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-09-24T17:09:18.805Z"
+      "resolvedAt": "2026-09-24T21:29:49.908Z"
     },
     {
       "id": "org.localsend",
@@ -74,11 +74,11 @@
       },
       "metrics": {
         "repo": "https://github.com/localsend/localsend",
-        "stars": 92603,
+        "stars": 92614,
         "lastCommit": "2026-09-24T01:29:42Z"
       },
       "resolvedFrom": "localsend/localsend",
-      "resolvedAt": "2026-09-24T17:09:18.805Z",
+      "resolvedAt": "2026-09-24T21:29:49.908Z",
       "notes": "This release fixes compatibility issues with 1.17.0 and earlier.\r\nNote: The Windows binaries have been updated to include a signature.\r\n\r\n- feat: drag and drop files into the \"Receive via link\" browser page\r\n- feat(desktop): allow customizing the web share pages by placing HTML files in a `web` folder next to the executable\r\n- feat(cli): add version info to the Windows executable\r\n- feat(linux): set actual version in the AppImage\r\n- security: do not follow HTTP redirects sent by peers\r\n- fix: restore compatibility with 1.17.0 and earlier versions on missing multicast networks\r\n- fix: devices running 1.17.0 and earlier could not add 1.18.0+ device as favorite\r\n- fix: ignore proxies, fixes \"TLS info not found\" when a system proxy (e.g. Shadowrocket) is enabled\r\n- fix: automatically restart the HTTP / multicast server when it dies or when the app resumes\r\n- fix: drag and drop with a mix of folders and files\r\n- fix: during transfer, add bottom padding when Advanced is open (@Chethan616)\r\n- fix: do not crash at startup when the executable path cannot be resolved (@Shlomo116)\r\n- fix(android): ignore unknown or invalid file modification times when reading files\r\n- i18n: add Armenian",
       "images": [
         "https://localsend.org/img/sponsors/tesmu.svg",
@@ -101,31 +101,31 @@
         "Visio",
         "Lucidchart"
       ],
-      "version": "31.4.5",
+      "version": "31.5.2",
       "downloads": {
         "darwin-arm64": {
-          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/draw.io-arm64-31.4.5.dmg"
+          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/draw.io-arm64-31.5.2.dmg"
         },
         "darwin-x64": {
-          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/draw.io-universal-31.4.5.dmg"
+          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/draw.io-universal-31.5.2.dmg"
         },
         "win32-x64": {
-          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/draw.io-31.4.5-windows-installer.exe"
+          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/draw.io-31.5.2-windows-installer.exe"
         },
         "linux-x64": {
-          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/drawio-x86_64-31.4.5.AppImage"
+          "url": "https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/drawio-x86_64-31.5.2.AppImage"
         }
       },
       "metrics": {
         "repo": "https://github.com/jgraph/drawio-desktop",
-        "stars": 63269,
-        "lastCommit": "2026-09-24T14:02:40Z"
+        "stars": 63271,
+        "lastCommit": "2026-09-24T17:40:57Z"
       },
       "resolvedFrom": "jgraph/drawio-desktop",
-      "resolvedAt": "2026-09-24T17:09:19.637Z",
-      "notes": "## Release Notes for 31.4.5\r\n\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/draw.io-31.4.5-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/draw.io-31.4.5-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/draw.io-universal-31.4.5.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/drawio-amd64-31.4.5.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/drawio-x86_64-31.4.5.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v31.4.5/drawio-x86_64-31.4.5.rpm)\r\n\r\n**ChangeLog:**\r\n\r\n- Drops files the packaged app never reads, which makes the downloads 7 to 14 MB smaller depending on the package\r\n- Sandboxes the renderer of the progress window shown while an update downloads\r\n- Enables auto-update for Windows arm64 builds, which were previously published with updates disabled because both architectures wrote the same update manifest. Existing arm64 users need to install this build manually once, after which updates arrive in the app as usual [jgraph/drawio-desktop#2197]\r\n- Updates to [draw.io core 31.4.5](https://github.com/jgraph/drawio/blob/v31.4.5/ChangeLog). All changes from 31.4.4 to 31.4.5 are added in this build.\r\n\r\n**Testing:**\r\n\r\nVerified against the packaged, signed macOS build. The Windows arm64 update channel was verified from the build configuration, the produced update manifest and unit tests, rather than from a running Windows build.\r\n\r\nBase checks\r\n\r\n- Launch, open a file passed on the command line, add and edit shapes, change styles, undo and redo, copy and paste, save, insert, rename and delete pages, and zoom\r\n- Export to PNG, SVG and PDF from the app and from the command line, covering scale, border, transparency, cropping, page selection with -p and --size page against the default --size diagram\r\n- Diagram round trip in an exported PDF, including reopening the exported PDF and recovering both pages and their contents\r\n- Mermaid and CSV import and the --layout option from the command line\r\n- Shape search, the export dialog and the print preview\r\n- Quick Look preview on macOS is registered for this build and loads without error\r\n- The macOS bundle is signed with a Developer ID certificate under the hardened runtime, is notarised and stapled, and the Quick Look app extension is sandboxed and separately signed\r\n- The Electron security fuses are applied, so RunAsNode, the NODE_OPTIONS variable and the node inspect arguments are disabled and the app only loads from the asar\r\n- 158 unit tests pass\r\n\r\nFiles dropped from the package\r\n\r\n- All 204 stencil files are present in the embedded stencil bundle, matching the source tree exactly, and every one of them parses at runtime without a single request reaching a removed file\r\n- Of the 2866 shape names referenced by the shipped bundles, the same number resolve as on a reference build made from the same source, so nothing that used to render has been lost\r\n- Startup produces no failed loads and no console errors\r\n- Shapes backed by stencils, by the compiled shape bundle and by images all render, both in the app and in command line exports\r\n- PDF export still works, which is the path that resolves the PDF library build kept in the package\r\n- Starting a packaged build with DRAWIO_ENV=dev now keeps the minified bundles instead of opening a blank window\r\n\r\nProgress window sandbox\r\n\r\n- The progress window renderer runs sandboxed, confirmed against a control window built without the sandbox\r\n- Its text, detail line and bar position still update, the completion event still fires and the window still closes\r\n- The window does not stay on top of the editor [jgraph/drawio-desktop#2516]\r\n\r\nChecks around the changes\r\n\r\n- Reads, stats and watches of paths the user has not authorised are still refused, and so are writes, while an authorised file still reads and saves [GHSA-fjgc-8xgj-rvh4]\r\n- Only http, https, mailto, tel and callto links are opened externally\r\n- Libraries opened from a file still load, and saving one repeatedly still writes each time without reopening the save dialog [jgraph/drawio-desktop#2518] [jgraph/drawio-desktop#2521]\r\n- Opening a file from the command line, saving it without a dialog and reopening it round trips with both pages intact\r\n",
+      "resolvedAt": "2026-09-24T21:29:50.697Z",
+      "notes": "## Release Notes for 31.5.2\r\n\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/draw.io-31.5.2-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/draw.io-31.5.2-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/draw.io-universal-31.5.2.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/drawio-amd64-31.5.2.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/drawio-x86_64-31.5.2.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.2/drawio-x86_64-31.5.2.rpm)\r\n\r\n**ChangeLog:**\r\n\r\n- Uses electron 44.4.5\r\n- Notices changes made to an open file by another program even when draw.io is not the frontmost application, and sends them to the window that has the file open [jgraph/drawio-desktop#2541]\r\n- Asks whether to overwrite or synchronise when another program replaces an open file with an older version of itself, for example a sync client rolling back, instead of merging it silently [jgraph/drawio-desktop#2382]\r\n- Loads shape libraries declared with a local path in the libraries configuration again, which were refused with \"Path not authorized\" since 31.4.4 [jgraph/drawio-desktop#2546]\r\n- Adds the --normalize command line option, which repairs generated diagrams before they are exported or opened: edges filed under the wrong parent, edges without a geometry and containers that clip their children\r\n- Adds the --timeout command line option, which fails the export of a file that takes longer than the given number of seconds and continues with the next file\r\n- Command line exports no longer hang or stop at a dialog: invalid Mermaid input, an unknown or invalid --layout, a crashed export or Visio import and an unreadable file now fail that file with an error while the rest of a folder still exports, an unexpected error ends the export instead of showing a dialog, and the exit code is 1 in both cases. Empty Mermaid and CSV files are refused for HTML export\r\n- Skips symbolic links when exporting a folder from the command line, and refuses to write an output file through a symbolic link placed at the file name the export derives from its input. Paths typed on the command line are followed as before [GHSA-2w35-fgjm-2vvh]\r\n- Starts Windows system programs by their full path, so a program placed in a diagram's folder can no longer run in their place when the diagram is opened from Explorer [GHSA-qg46-52fx-h7p8]\r\n- Stops backups and file writes from following a symbolic link placed at the name of an authorised file or its backup [GHSA-36x5-vw5q-29rv]\r\n- Never checks for updates when updates are disabled, including from the Help menu and when the settings cannot be read\r\n- The Microsoft Store package requires Windows 10 version 1809 or later\r\n- Updates to [draw.io core 31.5.2](https://github.com/jgraph/drawio/blob/v31.5.2/ChangeLog). All changes from 31.4.5 to 31.5.2 are added in this build.\r\n\r\n**Testing:**\r\n\r\nVerified against the packaged, signed macOS build. Windows and Linux packages were verified from the produced release artifacts, their sizes and update manifests, rather than by running them, and the Windows program path change from unit tests and review.\r\n\r\nBase checks\r\n\r\n- Launch, open a file passed on the command line, add and edit shapes, change styles, undo and redo, copy and paste, save and reopen, insert and delete pages, rename a page, and zoom\r\n- Export to PNG, SVG and PDF from the app and from the command line, covering scale, border, transparency, cropping, page selection with -p and --size page\r\n- Diagram round trip in an exported PDF, including reopening the exported PDF and recovering both pages and their contents\r\n- Mermaid and CSV import and the --layout option from the command line\r\n- Shape search, the export and print dialogs and the configuration dialog\r\n- Settings survive a restart, and unsaved changes are kept as a draft next to the file\r\n- The macOS bundle is signed with a Developer ID certificate under the hardened runtime, is notarised and stapled, and the Quick Look app extension is sandboxed and separately signed\r\n- The Electron security fuses are applied, so RunAsNode, the NODE_OPTIONS variable and the node inspect arguments are disabled and the app only loads from the asar\r\n- 225 unit tests pass\r\n\r\nChanges to open files\r\n\r\n- A change made by another program reaches a window that is not focused within 5 seconds and shows the notice to synchronise [jgraph/drawio-desktop#2541]\r\n- Replacing an open file with an older saved version of itself asks whether to overwrite or synchronise, closing the question keeps the notice, and overwriting writes the current version back [jgraph/drawio-desktop#2382]\r\n\r\nCommand line\r\n\r\n- --normalize gives an edge without a geometry its geometry, both when exporting and when opening a file\r\n- --timeout 1 fails a 6000 shape PDF export after one second while the next file in the folder still exports, and the same file exports in about 17 seconds without the option\r\n- Invalid Mermaid, an unknown or invalid --layout, an unreadable file, a corrupt Visio file and a killed export process each end with an error and exit code 1 instead of hanging, and the other files in the folder still export\r\n- Empty Mermaid and CSV files are refused for HTML export and no page is written\r\n\r\nSymbolic links\r\n\r\n- A folder export skips a link to a text file outside the folder and a linked subfolder, and nothing from outside the folder appears in the output [GHSA-2w35-fgjm-2vvh]\r\n- An output file name that is a link, to an existing file or to a missing one, is refused and the file the link points to is left untouched, while paths typed on the command line are still followed\r\n- Saving still works when the backup file name is a link to a file elsewhere, that file is not written, and normal backups are still created [GHSA-36x5-vw5q-29rv]\r\n- Reading, writing and checking an authorised file through a link placed at its name is refused, including a link to a missing file\r\n\r\nLibraries in the configuration\r\n\r\n- A shape library declared with a local path in the libraries configuration loads after a restart and shows its shapes, while other local files stay unreadable [jgraph/drawio-desktop#2546]\r\n\r\nChecks around the changes\r\n\r\n- Reads, writes and checks of paths the user has not authorised are still refused, and only http, https, mailto, tel and callto links are opened externally\r\n- The export menu offers the same formats as in 31.4.5, and every export is produced locally in the app\r\n- The list of fonts installed on the system still loads\r\n- Update manifests name this version, and the Windows x64 and arm64 manifests each list only their own installer\r\n",
       "images": [],
-      "publishedAt": "2026-09-08T19:35:16Z"
+      "publishedAt": "2026-09-24T19:27:55Z"
     },
     {
       "id": "com.logseq.logseq",
@@ -153,11 +153,11 @@
       },
       "metrics": {
         "repo": "https://github.com/logseq/logseq",
-        "stars": 45046,
-        "lastCommit": "2026-09-24T17:07:49Z"
+        "stars": 45047,
+        "lastCommit": "2026-09-24T19:54:45Z"
       },
       "resolvedFrom": "logseq/logseq",
-      "resolvedAt": "2026-09-24T17:09:20.245Z",
+      "resolvedAt": "2026-09-24T21:29:51.421Z",
       "notes": "# Logseq 2.0 Beta (DB version) is here! 🎉\r\n\r\nAfter a long wait, our first Logseq 2.0 beta release is finally here. We know many of you have been looking forward to trying it, and we’re excited to put it in your hands!\r\n\r\nThis is an early beta, so you may encounter some rough edges. We’d love for you to give it a try and tell us what works, what doesn’t, and what you’d like to see next. Your feedback will help us improve Logseq and shape the stable release.\r\n\r\nBefore getting started, please take a moment to read these updates:\r\n\r\n- [Live roadmap](https://logseq.io/p/NX4mc_ggEV)\r\n- [Big update: Logseq is splitting into two versions](https://logseq.io/p/e3YDyX5AYr)\r\n\r\nAs with any beta, please back up your important data before testing. You can share feedback and report issues through our [GitHub issue tracker](https://github.com/logseq/db-test/issues).\r\n\r\nThank you for your patience, encouragement, and continued support. We’re excited to begin this next chapter with you! ❤️",
       "images": [
         "https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif",
