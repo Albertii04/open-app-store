@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-26T11:23:12.862Z",
+  "generatedAt": "2026-09-26T16:22:21.052Z",
   "apps": [
     {
       "id": "albert.presenter",
@@ -20,7 +20,7 @@
         "repo": "https://github.com/Albertii04/open-app-store"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-09-26T11:23:11.111Z"
+      "resolvedAt": "2026-09-26T16:22:18.938Z"
     },
     {
       "id": "org.gimp",
@@ -43,7 +43,7 @@
         "repo": "https://gitlab.gnome.org/GNOME/gimp"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-09-26T11:23:11.116Z"
+      "resolvedAt": "2026-09-26T16:22:18.941Z"
     },
     {
       "id": "org.localsend",
@@ -74,11 +74,11 @@
       },
       "metrics": {
         "repo": "https://github.com/localsend/localsend",
-        "stars": 92720,
+        "stars": 92743,
         "lastCommit": "2026-09-24T01:29:42Z"
       },
       "resolvedFrom": "localsend/localsend",
-      "resolvedAt": "2026-09-26T11:23:11.116Z",
+      "resolvedAt": "2026-09-26T16:22:18.941Z",
       "notes": "This release fixes compatibility issues with 1.17.0 and earlier.\r\nNote: The Windows binaries have been updated to include a signature.\r\n\r\n- feat: drag and drop files into the \"Receive via link\" browser page\r\n- feat(desktop): allow customizing the web share pages by placing HTML files in a `web` folder next to the executable\r\n- feat(cli): add version info to the Windows executable\r\n- feat(linux): set actual version in the AppImage\r\n- security: do not follow HTTP redirects sent by peers\r\n- fix: restore compatibility with 1.17.0 and earlier versions on missing multicast networks\r\n- fix: devices running 1.17.0 and earlier could not add 1.18.0+ device as favorite\r\n- fix: ignore proxies, fixes \"TLS info not found\" when a system proxy (e.g. Shadowrocket) is enabled\r\n- fix: automatically restart the HTTP / multicast server when it dies or when the app resumes\r\n- fix: drag and drop with a mix of folders and files\r\n- fix: during transfer, add bottom padding when Advanced is open (@Chethan616)\r\n- fix: do not crash at startup when the executable path cannot be resolved (@Shlomo116)\r\n- fix(android): ignore unknown or invalid file modification times when reading files\r\n- i18n: add Armenian",
       "images": [
         "https://localsend.org/img/sponsors/tesmu.svg",
@@ -118,11 +118,11 @@
       },
       "metrics": {
         "repo": "https://github.com/jgraph/drawio-desktop",
-        "stars": 63284,
+        "stars": 63293,
         "lastCommit": "2026-09-25T23:26:11Z"
       },
       "resolvedFrom": "jgraph/drawio-desktop",
-      "resolvedAt": "2026-09-26T11:23:11.789Z",
+      "resolvedAt": "2026-09-26T16:22:19.786Z",
       "notes": "## Release Notes for 31.5.3\r\n\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.3/draw.io-31.5.3-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.3/draw.io-31.5.3-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.3/draw.io-universal-31.5.3.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.3/drawio-amd64-31.5.3.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.3/drawio-x86_64-31.5.3.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v31.5.3/drawio-x86_64-31.5.3.rpm)\r\n\r\n**ChangeLog:**\r\n\r\n- Opens and saves files on mapped network drives again, which 31.5.2 refused with \"path not authorised\". Files and libraries on such a drive that were opened with 31.5.2 or earlier need opening once more after the update [jgraph/drawio-desktop#2559]\r\n- Shows tooltip icons again when the retired Tooltips plugin is enabled in the settings, instead of failing to load the plugin\r\n- Command line exports of Mermaid input with nothing to draw, for example statements that are not recognised, fail with \"Nothing to draw\" and exit code 1 instead of writing an empty PDF or XML file or failing without a reason\r\n- The Linux deb and rpm packages give the licence as GPL-3.0-only, following the licence change in 31.5.2\r\n- Updates to [draw.io core 31.5.3](https://github.com/jgraph/drawio/blob/v31.5.3/ChangeLog). All changes from 31.5.2 to 31.5.3 are added in this build.\r\n\r\n**Testing:**\r\n\r\nVerified against the packaged, signed macOS build. Windows and Linux packages were verified from the produced release artifacts, their sizes and update manifests, rather than by running them, and the Windows mapped drive fix from unit tests and the same path mismatch reproduced on macOS.\r\n\r\nBase checks\r\n\r\n- Launch, open a file passed on the command line, add and edit shapes, change styles, undo and redo, copy and paste, save and reopen, insert and delete pages, rename a page, and zoom\r\n- Export to PNG, SVG and PDF from the app and from the command line, covering scale, border, transparency, cropping, page selection with -p and --size page\r\n- Diagram round trip in an exported PDF, including reopening the exported PDF and recovering both pages and their contents\r\n- Mermaid, CSV and Visio import and the --layout and --normalize options from the command line\r\n- Shape search, the menus, the export and print dialogs\r\n- Settings survive a restart, and unsaved changes are kept as a draft next to the file\r\n- The macOS bundle is signed with a Developer ID certificate under the hardened runtime, is notarised and stapled, and the Quick Look app extension is sandboxed and separately signed\r\n- The Electron security fuses are applied, so RunAsNode, the NODE_OPTIONS variable and the node inspect arguments are disabled and the app only loads from the asar\r\n- 229 unit tests pass\r\n\r\nFiles on mapped drives\r\n\r\n- A diagram opened through a path whose spelling differs from its location on disk, the mismatch a mapped drive causes, opens with both pages, reads back, saves without a dialog and gets its backup and draft, where 31.5.2 refused it with \"path not authorised\" [jgraph/drawio-desktop#2559]\r\n- A library declared in the configuration through such a path loads, and writing to it is still refused\r\n\r\nTooltips plugin\r\n\r\n- A profile with the retired Tooltips plugin enabled starts without a failed load and draws the tooltip icon on shapes that have a tooltip, built-in plugins still load, and plugin entries pointing outside the app are skipped\r\n\r\nMermaid on the command line\r\n\r\n- Two kinds of Mermaid input with nothing to draw fail PNG, SVG, PDF and XML exports with exit code 1 and the reason, and write no file, while valid Mermaid still exports\r\n\r\ndraw.io core 31.5.3\r\n\r\n- Curved connectors stay curved when their waypoints are set to Straight [jgraph/drawio-desktop#1442]\r\n- The new Orthogonal Ends option shows with its label in the Format panel and applies to the selected connector\r\n- PlantUML sequence diagrams convert with the sequence connector style\r\n- Shape search matches the tags of shapes whose names contain several words\r\n- A Visio file imports from the command line with the same result as in 31.5.2\r\n\r\nChecks around the changes\r\n\r\n- Reading, writing and checking a file through a link placed next to an authorised file is refused, as are files outside the authorised set, and the files the links point to are unchanged\r\n- Saving still works when the backup file name is a link to a file elsewhere, that file is not written, and a normal backup is created once the link is gone [GHSA-36x5-vw5q-29rv]\r\n- file: and javascript: links are not opened externally\r\n- All menus list the same entries as in 31.5.2 apart from the version\r\n",
       "images": [],
       "publishedAt": "2026-09-26T08:28:29Z"
@@ -153,11 +153,11 @@
       },
       "metrics": {
         "repo": "https://github.com/logseq/logseq",
-        "stars": 45055,
-        "lastCommit": "2026-09-26T11:19:56Z"
+        "stars": 45059,
+        "lastCommit": "2026-09-26T15:51:34Z"
       },
       "resolvedFrom": "logseq/logseq",
-      "resolvedAt": "2026-09-26T11:23:12.321Z",
+      "resolvedAt": "2026-09-26T16:22:20.436Z",
       "notes": "# Logseq 2.0 Beta (DB version) is here! 🎉\r\n\r\nAfter a long wait, our first Logseq 2.0 beta release is finally here. We know many of you have been looking forward to trying it, and we’re excited to put it in your hands!\r\n\r\nThis is an early beta, so you may encounter some rough edges. We’d love for you to give it a try and tell us what works, what doesn’t, and what you’d like to see next. Your feedback will help us improve Logseq and shape the stable release.\r\n\r\nBefore getting started, please take a moment to read these updates:\r\n\r\n- [Live roadmap](https://logseq.io/p/NX4mc_ggEV)\r\n- [Big update: Logseq is splitting into two versions](https://logseq.io/p/e3YDyX5AYr)\r\n\r\nAs with any beta, please back up your important data before testing. You can share feedback and report issues through our [GitHub issue tracker](https://github.com/logseq/db-test/issues).\r\n\r\nThank you for your patience, encouragement, and continued support. We’re excited to begin this next chapter with you! ❤️",
       "images": [
         "https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif",
