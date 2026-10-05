@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-05T05:37:34.924Z",
+  "generatedAt": "2026-10-05T14:34:48.518Z",
   "apps": [
     {
       "id": "albert.presenter",
@@ -20,7 +20,7 @@
         "repo": "https://github.com/Albertii04/open-app-store"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-10-05T05:37:32.534Z"
+      "resolvedAt": "2026-10-05T14:34:46.410Z"
     },
     {
       "id": "org.gimp",
@@ -43,7 +43,7 @@
         "repo": "https://gitlab.gnome.org/GNOME/gimp"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-10-05T05:37:32.539Z"
+      "resolvedAt": "2026-10-05T14:34:46.415Z"
     },
     {
       "id": "org.localsend",
@@ -74,11 +74,11 @@
       },
       "metrics": {
         "repo": "https://github.com/localsend/localsend",
-        "stars": 93373,
+        "stars": 93408,
         "lastCommit": "2026-10-04T22:58:37Z"
       },
       "resolvedFrom": "localsend/localsend",
-      "resolvedAt": "2026-10-05T05:37:32.539Z",
+      "resolvedAt": "2026-10-05T14:34:46.415Z",
       "notes": "This release fixes compatibility issues with 1.17.0 and earlier.\r\nNote: The Windows binaries have been updated to include a signature.\r\n\r\n- feat: drag and drop files into the \"Receive via link\" browser page\r\n- feat(desktop): allow customizing the web share pages by placing HTML files in a `web` folder next to the executable\r\n- feat(cli): add version info to the Windows executable\r\n- feat(linux): set actual version in the AppImage\r\n- security: do not follow HTTP redirects sent by peers\r\n- fix: restore compatibility with 1.17.0 and earlier versions on missing multicast networks\r\n- fix: devices running 1.17.0 and earlier could not add 1.18.0+ device as favorite\r\n- fix: ignore proxies, fixes \"TLS info not found\" when a system proxy (e.g. Shadowrocket) is enabled\r\n- fix: automatically restart the HTTP / multicast server when it dies or when the app resumes\r\n- fix: drag and drop with a mix of folders and files\r\n- fix: during transfer, add bottom padding when Advanced is open (@Chethan616)\r\n- fix: do not crash at startup when the executable path cannot be resolved (@Shlomo116)\r\n- fix(android): ignore unknown or invalid file modification times when reading files\r\n- i18n: add Armenian",
       "images": [
         "https://localsend.org/img/sponsors/tesmu.svg",
@@ -118,11 +118,11 @@
       },
       "metrics": {
         "repo": "https://github.com/jgraph/drawio-desktop",
-        "stars": 63390,
+        "stars": 63392,
         "lastCommit": "2026-10-03T14:41:20Z"
       },
       "resolvedFrom": "jgraph/drawio-desktop",
-      "resolvedAt": "2026-10-05T05:37:33.456Z",
+      "resolvedAt": "2026-10-05T14:34:47.268Z",
       "notes": "## Release Notes for 31.7.0\r\n\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v31.7.0/draw.io-31.7.0-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v31.7.0/draw.io-31.7.0-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v31.7.0/draw.io-universal-31.7.0.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v31.7.0/drawio-amd64-31.7.0.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v31.7.0/drawio-x86_64-31.7.0.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v31.7.0/drawio-x86_64-31.7.0.rpm)\r\n\r\n**ChangeLog:**\r\n\r\n- Uses electron 44.5.1\r\n- Keeps the diagram open when a link, form or script tries to load a blank page into the editor window, which previously replaced the editor with an empty window\r\n- Shows the keyboard shortcuts in a dialog inside the app, which also works offline [jgraph/drawio-desktop#1130]\r\n- Updates to [draw.io core 31.7.0](https://github.com/jgraph/drawio/blob/v31.7.0/ChangeLog). All changes from 31.5.3 to 31.7.0 are added in this build.\r\n\r\n**Testing:**\r\n\r\nVerified against the packaged, signed macOS build. Windows and Linux packages were verified from the produced release artifacts, their sizes and update manifests, rather than by running them.\r\n\r\nBase checks\r\n\r\n- Launch, open a file passed on the command line, add and edit shapes, change styles, undo and redo, copy and paste, save, insert, rename and delete pages, and zoom\r\n- Export to PNG, JPEG, SVG, PDF, XML and HTML from the command line, covering scale, border, transparency, cropping, page selection with -p and --size page, and PNG and PDF export from the app\r\n- Diagram round trip in an exported PDF, including reopening the exported PDF and recovering both pages and their contents\r\n- Mermaid and CSV import and the --layout and --normalize options from the command line\r\n- Shape search, stencils and shape libraries, the export dialogs and the print dialog\r\n- Settings survive a restart\r\n- The macOS bundle is signed with a Developer ID certificate under the hardened runtime, is notarised and stapled, and the Quick Look app extension is sandboxed, separately signed and registered for this build\r\n- The Electron security fuses are applied, so RunAsNode, the NODE_OPTIONS variable and the node inspect arguments are disabled and the app only loads from the asar\r\n- 229 unit tests pass\r\n\r\nBlank pages in the editor window\r\n\r\n- The editor stays open for eight ways of loading a blank page into its window: setting the location, location.assign, window.open with _self and with _top, a link, a form, a meta refresh and a frame changing the top location. On 31.5.3 the first of these replaced the editor with an empty window\r\n- Blank windows opened by the editor, such as the print preview, still open as separate windows with their content, and other addresses still go through the check that only opens allowed links externally\r\n\r\nKeyboard shortcuts\r\n\r\n- Help > Keyboard Shortcuts shows the shortcut sheet bundled with the app in a dialog [jgraph/drawio-desktop#1130]\r\n\r\nCore changes checked in the desktop app\r\n\r\n- Transparent PNG export of a diagram with a background colour is now fully transparent from the command line, and keeps the background without the transparency option [jgraph/drawio-desktop#1905]\r\n- PDF export of a page with math contains the formula source as text, image export of a page without math keeps the label text exactly as typed, and PNG export of math is pixel for pixel the same as in 31.5.3\r\n- Math support loads only when math is first used, and formulas render in the editor\r\n- Page animations export as an animated GIF and as an H.264 MP4 video at 1280x720, with the frames following the animation steps [jgraph/drawio#5777]\r\n- Undo and redo shortcuts work while the colour picker window has the focus [jgraph/drawio-desktop#2395]\r\n- Clicking a connector in the shape library with two shapes selected connects them [jgraph/drawio-desktop#1962]\r\n\r\nChecks around the changes\r\n\r\n- The functions the app exposes to the editor page are unchanged and give it no access to Node\r\n- Reads, stats and writes of paths the user has not authorised are still refused, while an authorised file still reads and saves\r\n- File and javascript links are still refused rather than opened externally\r\n- Every update manifest names 31.7.0, and the Windows x64 and arm64 manifests each list only their own installer\r\n",
       "images": [],
       "publishedAt": "2026-10-02T06:39:06Z"
@@ -153,11 +153,11 @@
       },
       "metrics": {
         "repo": "https://github.com/logseq/logseq",
-        "stars": 45134,
-        "lastCommit": "2026-10-05T05:15:58Z"
+        "stars": 45137,
+        "lastCommit": "2026-10-05T14:30:28Z"
       },
       "resolvedFrom": "logseq/logseq",
-      "resolvedAt": "2026-10-05T05:37:34.123Z",
+      "resolvedAt": "2026-10-05T14:34:47.884Z",
       "notes": "# Logseq 2.0 Beta (DB version) is here! 🎉\r\n\r\nAfter a long wait, our first Logseq 2.0 beta release is finally here. We know many of you have been looking forward to trying it, and we’re excited to put it in your hands!\r\n\r\nThis is an early beta, so you may encounter some rough edges. We’d love for you to give it a try and tell us what works, what doesn’t, and what you’d like to see next. Your feedback will help us improve Logseq and shape the stable release.\r\n\r\nBefore getting started, please take a moment to read these updates:\r\n\r\n- [Live roadmap](https://logseq.io/p/NX4mc_ggEV)\r\n- [Big update: Logseq is splitting into two versions](https://logseq.io/p/e3YDyX5AYr)\r\n\r\nAs with any beta, please back up your important data before testing. You can share feedback and report issues through our [GitHub issue tracker](https://github.com/logseq/db-test/issues).\r\n\r\nThank you for your patience, encouragement, and continued support. We’re excited to begin this next chapter with you! ❤️",
       "images": [
         "https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif",
