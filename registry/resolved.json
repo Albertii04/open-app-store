@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-14T06:19:24.322Z",
+  "generatedAt": "2026-11-14T17:59:05.726Z",
   "apps": [
     {
       "id": "albert.presenter",
@@ -20,7 +20,7 @@
         "repo": "https://github.com/Albertii04/open-app-store"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-11-14T06:19:22.236Z"
+      "resolvedAt": "2026-11-14T17:59:04.008Z"
     },
     {
       "id": "org.gimp",
@@ -43,7 +43,7 @@
         "repo": "https://gitlab.gnome.org/GNOME/gimp"
       },
       "resolvedFrom": "manual",
-      "resolvedAt": "2026-11-14T06:19:22.239Z"
+      "resolvedAt": "2026-11-14T17:59:04.011Z"
     },
     {
       "id": "org.localsend",
@@ -74,11 +74,11 @@
       },
       "metrics": {
         "repo": "https://github.com/localsend/localsend",
-        "stars": 98894,
+        "stars": 98981,
         "lastCommit": "2026-11-11T03:19:56Z"
       },
       "resolvedFrom": "localsend/localsend",
-      "resolvedAt": "2026-11-14T06:19:22.239Z",
+      "resolvedAt": "2026-11-14T17:59:04.011Z",
       "notes": "This release fixes compatibility issues with 1.17.0 and earlier.\r\nNote: The Windows binaries have been updated to include a signature.\r\n\r\n- feat: drag and drop files into the \"Receive via link\" browser page\r\n- feat(desktop): allow customizing the web share pages by placing HTML files in a `web` folder next to the executable\r\n- feat(cli): add version info to the Windows executable\r\n- feat(linux): set actual version in the AppImage\r\n- security: do not follow HTTP redirects sent by peers\r\n- fix: restore compatibility with 1.17.0 and earlier versions on missing multicast networks\r\n- fix: devices running 1.17.0 and earlier could not add 1.18.0+ device as favorite\r\n- fix: ignore proxies, fixes \"TLS info not found\" when a system proxy (e.g. Shadowrocket) is enabled\r\n- fix: automatically restart the HTTP / multicast server when it dies or when the app resumes\r\n- fix: drag and drop with a mix of folders and files\r\n- fix: during transfer, add bottom padding when Advanced is open (@Chethan616)\r\n- fix: do not crash at startup when the executable path cannot be resolved (@Shlomo116)\r\n- fix(android): ignore unknown or invalid file modification times when reading files\r\n- i18n: add Armenian",
       "images": [
         "https://localsend.org/img/sponsors/tesmu.svg",
@@ -118,11 +118,11 @@
       },
       "metrics": {
         "repo": "https://github.com/jgraph/drawio-desktop",
-        "stars": 63990,
+        "stars": 63996,
         "lastCommit": "2026-11-05T07:55:32Z"
       },
       "resolvedFrom": "jgraph/drawio-desktop",
-      "resolvedAt": "2026-11-14T06:19:23.056Z",
+      "resolvedAt": "2026-11-14T17:59:04.617Z",
       "notes": "## Release Notes for 32.6.10\r\n\r\n[Windows Installer](https://github.com/jgraph/drawio-desktop/releases/download/v32.6.10/draw.io-32.6.10-windows-installer.exe)\r\n[Windows No Installer (zip)](https://github.com/jgraph/drawio-desktop/releases/download/v32.6.10/draw.io-32.6.10-windows.zip)\r\n[macOS - Universal](https://github.com/jgraph/drawio-desktop/releases/download/v32.6.10/draw.io-universal-32.6.10.dmg)\r\nLinux - [deb](https://github.com/jgraph/drawio-desktop/releases/download/v32.6.10/drawio-amd64-32.6.10.deb), [AppImage](https://github.com/jgraph/drawio-desktop/releases/download/v32.6.10/drawio-x86_64-32.6.10.AppImage) or [rpm](https://github.com/jgraph/drawio-desktop/releases/download/v32.6.10/drawio-x86_64-32.6.10.rpm)\r\n\r\n**ChangeLog:**\r\n\r\n- Uses electron 44.10.2\r\n- Exports all pages as one SVG with --all-pages -f svg, with a view for each page, so that file.svg#Page-2 in an image shows the second page [jgraph/drawio#5821]\r\n- Stops the command line export from hanging on malformed PNG files\r\n- Updates to [draw.io core 32.6.10](https://github.com/jgraph/drawio/blob/v32.6.10/ChangeLog). All changes from 32.6.1 to 32.6.10 are added in this build.\r\n\r\n**Testing:**\r\n\r\nVerified against the packaged, signed macOS build. Windows and Linux packages were verified from the produced release artifacts, their sizes and update manifests, rather than by running them.\r\n\r\nBase checks\r\n\r\n- Launch, open a file passed on the command line, add and edit shapes, change styles, undo and redo, copy and paste, save and reopen, insert, rename and delete pages, and zoom\r\n- Export to PNG and PDF from the app, and to PNG, JPEG, SVG, PDF, XML and HTML from the command line, covering scale, border, transparency, cropping, page selection with -p and --size page\r\n- Diagram round trip in an exported PDF, including reopening the exported PDF and recovering both pages\r\n- Mermaid and CSV import, and the --layout and --normalize options from the command line\r\n- Shape search, stencils and shape libraries, and the export, print and Page Setup dialogs\r\n- Settings and the window position and size survive a restart\r\n- The Quick Look extension is registered for this build, sandboxed and separately signed\r\n- The macOS bundle is signed with a Developer ID certificate under the hardened runtime, is notarised and stapled\r\n- The Electron security fuses are applied\r\n- 296 unit tests pass\r\n\r\nAll pages as one SVG\r\n\r\n- A file with 2 pages exports one SVG with a view for the name and the ID of each page, and in a browser the views show the second page and no view shows the first page\r\n- A file with 3000 pages exports in about 6 seconds with all of its views\r\n- A page with math, a page with a traced image and the page after them all arrive in the SVG\r\n- The Alt Text of each page is written as its title with markup escaped, and pages without one have none\r\n\r\nMalformed PNG files\r\n\r\n- Five crafted PNG files, each in a folder export and as a listed file with -f html, end without hanging, and the good diagram next to them is still exported. Three of them hung the previous release on both paths\r\n- A PNG with an embedded diagram is still found by a folder export, and a PNG without one is skipped\r\n\r\nChecks around the changes\r\n\r\n- Edges with the outline perimeter end on the outline of an image in SVG and PDF exports, also for the PDF export of a .drawio.svg file\r\n- Relative links in SVG exports are written without the install path, and javascript: links lose their scheme\r\n- A .mmd file with a title and description opens with them as the Alt Text of the page, and SVG exports write them as the title\r\n- Opening a diagram with a data source makes no request, and file URLs are refused as data sources\r\n- Alt+Shift+D describes the selection and Alt+Shift+U opens the text outline\r\n- Three library saves without a dialog each reach the file, and drafts are written next to the file and read back\r\n- Reads, stats and writes of paths the user has not authorised are still refused [GHSA-fjgc-8xgj-rvh4]\r\n- file: and javascript: links are not opened externally\r\n- The File menu and the Export as menu have the same entries as 32.6.1\r\n- All 5 update manifests name this version, with matching sizes\r\n",
       "images": [],
       "publishedAt": "2026-11-04T20:40:55Z"
@@ -153,11 +153,11 @@
       },
       "metrics": {
         "repo": "https://github.com/logseq/logseq",
-        "stars": 45583,
-        "lastCommit": "2026-11-14T05:47:51Z"
+        "stars": 45591,
+        "lastCommit": "2026-11-14T17:31:08Z"
       },
       "resolvedFrom": "logseq/logseq",
-      "resolvedAt": "2026-11-14T06:19:23.698Z",
+      "resolvedAt": "2026-11-14T17:59:05.198Z",
       "notes": "Logseq 2.0.2 Beta brings smoother editing, faster startup, and more reliable everyday workflows to the DB version.\r\n\r\n[Join the iOS TestFlight beta](https://testflight.apple.com/join/eBcJ9Hpc), 2.0.2 is currently under App Store review.\r\n\r\nWeb app: https://app.logseq.com/\r\n\r\n## Features\r\n\r\n- Gallery cards can now use URL properties as covers.\r\n- Added a \"Clear heading\" slash command.\r\n- Improved video embeds, with resizable desktop players and clickable YouTube timestamps.\r\n\r\n## Thanks\r\n\r\n- **Special thanks to our community PR contributors!** Your fixes, performance improvements, translations, and careful reviews helped make this beta better. Contributors include [@yuxi-liu-wired](https://github.com/yuxi-liu-wired), [@ChipNowacek](https://github.com/ChipNowacek), [@Mancn-Xu](https://github.com/Mancn-Xu), [@hahaArthur17](https://github.com/hahaArthur17), [@maksym-dilanian](https://github.com/maksym-dilanian), [@qwist1233-cpu](https://github.com/qwist1233-cpu), and many others.\r\n- **A heartfelt thank-you to everyone testing the DB beta.** Your bug reports, reproduction steps, feedback, and retesting of fixes have been invaluable. Thank you for helping us improve Logseq with your real-world graphs and workflows!\r\n\r\n## Fixed issues\r\n\r\nOrdered by impact on data integrity, reliability, and everyday workflows.\r\n\r\n1. **Preserve unsaved edits:** Save pending text before following page or block references, switching blocks, or setting Deadline/Scheduled. Pasting multiple blocks no longer lets a stale editor buffer erase the first pasted title.\r\n2. **Restore deleted content with undo/redo:** Restore deleted blocks and pages that reference each other, along with property schemas and values. Undoing block moves now preserves their original order and nested structure.\r\n3. **Keep block trees intact when copying or moving:** Selecting an ancestor together with its descendants no longer pulls grandchildren out of their subtree. Copy/paste preserves the original child blocks, and embed actions operate on the embed rather than its source.\r\n4. **Keep graph and asset downloads running:** One failed asset download no longer stops the remaining asset queue or fails the graph download. Sync also keeps property-value replacements together instead of splitting them across requests.\r\n5. **Fix Windows installation:** Fix the NSIS installer crash affecting Windows 11 24H2 and newer, so the desktop app can be installed normally.\r\n6. **Improve file-to-DB import fidelity:** Preserve headings, icons, journal timestamps, and PDF annotation identities/order. Asset links in property values are converted into asset references, and same-title classes and properties remain distinct.\r\n7. **Correct scheduled dates and repeating tasks:** Deadline/Scheduled repeats now advance in the local calendar. Monthly repeats no longer drift permanently after a shorter month; date filters use local days, and clearing dates removes stale journal references.\r\n8. **Prevent query errors from crashing the graph:** Incomplete query syntax, invalid regular expressions, and query-function rendering errors are isolated. Query-builder filters again show property/tag names and include custom Status and Priority choices.\r\n9. **Fix property editing and choice selection:** Selected node values remain visible in property pickers, choice identities resolve consistently, and configuration toggles save the newly selected value. Empty multi-value slots and date values can be cleared without errors.\r\n10. **Restore readable search results and references:** Resolve UUID references in search titles, breadcrumbs, and nested page references. References to deleted nodes remain visible as broken links, and opening search no longer clears its results.\r\n11. **Restore settings and HTML publishing:** Settings can be saved when config.edn is missing or invalid, and the first export.css edit creates the file correctly. HTML exports no longer open as a blank page and honor the configured home page.\r\n12. **Make desktop editing and keyboard input reliable:** Clicks during scrolling now open the editor. A click after Escape or Shift+Up/Down keeps the newly opened editor, and fixes cover international dead-key input and IME confirmation in search.\r\n13. **Fix Android popup and layout issues:** Nested popups reuse the presented native sheet, sheet dismissal avoids re-entry, and the layout respects the status-bar safe area. Mobile cloud-graph download and sync triggers work again.\r\n\r\n## Enhancements\r\n\r\n- **Faster startup and smoother editing:** Improved desktop startup, journal loading, large-page rendering, table scrolling, and search, with fewer unnecessary updates while typing.\r\n- **Better everyday workflows:** Improved flashcard practice, date and repeating-task handling, international keyboard input, plugin APIs, CLI behavior, and translations.\r\n\r\n[Full changelog](https://github.com/logseq/logseq/compare/2.0.1...2.0.2)\r\n",
       "images": [
         "https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif",
